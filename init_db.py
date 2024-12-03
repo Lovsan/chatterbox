@@ -1,4 +1,7 @@
 # Description: This script is used to create the database tables.
+
+
+# import
 from app import app
 from models import db
 

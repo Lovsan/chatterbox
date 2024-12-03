@@ -1,4 +1,7 @@
 # Description: This file contains the main code for the Flask app.
+
+
+# import
 from flask import Flask, render_template, request, flash, redirect, session
 from flask_session import Session
 from models import db, User, Message
@@ -57,6 +60,11 @@ def register():
         user = User.query.filter_by(username=username).first()
         if user:
             flash("Username already exists!")
+            return redirect("/register")
+        
+        # check password length
+        if len(password) < 8:
+            flash("Password must be at least 8 characters long!")
             return redirect("/register")
         
         # create a new user
