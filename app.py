@@ -1,4 +1,4 @@
-# Description: This file contains the main code for the Flask app.
+# Description: This file contains the main code for the Flask app.t
 from flask import Flask, render_template
 from models import db, User, Message
 
