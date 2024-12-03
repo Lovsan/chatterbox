@@ -1,5 +1,3 @@
-.DS_Store
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -30,6 +28,7 @@ MANIFEST
 # Flask specific
 instance/
 .webassets-cache
+flask_session/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -129,3 +128,6 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+
+# macOS files
+.DS_Store
