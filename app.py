@@ -1,5 +1,5 @@
 # Description: This file contains the main code for the Flask app.
-from flask import Flask
+from flask import Flask, render_template
 from models import db, User, Message
 
 
@@ -10,10 +10,28 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db.init_app(app)
 
 
-# main route/page
+# home page
 @app.route("/")
 def home():
-    return "Hello, World!"
+    return render_template("home.html")
+
+
+# author page
+@app.route("/author")
+def author():
+    return render_template("author.html")
+
+
+# login page
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    return render_template("login.html")
+
+
+# register page
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    return render_template("register.html")
 
 
 # run the app
