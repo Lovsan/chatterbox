@@ -1,8 +1,13 @@
+# Description: This file contains the database models for the application.
 from flask_sqlalchemy import SQLAlchemy
 # from datetime import datetime
 
+
+# create the database object
 db = SQLAlchemy()
 
+
+# User database model
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(20), unique=True, nullable=False)
@@ -10,6 +15,8 @@ class User(db.Model):
 
     messages = db.relationship('Message', backref='user', lazy=True)
 
+
+# Message database model
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
