@@ -2,8 +2,8 @@
 
 
 # import
-from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+from flask_sqlalchemy import SQLAlchemy
 
 
 # create the database object
