@@ -60,7 +60,7 @@ Chatterbox is a simple real-time chat application built using Python, Flask, SQL
 ## File Structure
 
 ```
-Chatterbox/
+chatterbox/
 │
 ├── app.py                # Main application logic
 ├── models.py             # Database models
