@@ -30,8 +30,13 @@
                     </li>
                 </ul>
                 <div class="d-flex">
-                    <a href="/login" class="btn btn-outline-primary mx-1">Login</a>
-                    <a href="/register" class="btn btn-outline-primary mx-1">Register</a>
+                    {% if session.get("user_id") %}
+                        <span class="navbar-text mx-1">Welcome, {{ session["username"] }}</span>
+                        <a href="/logout" class="btn btn-outline-primary mx-1">Logout</a>
+                    {% else %}
+                        <a href="/login" class="btn btn-outline-primary mx-1">Login</a>
+                        <a href="/register" class="btn btn-outline-primary mx-1">Register</a>
+                    {% endif %}
                 </div> 
             </div>
             </div>

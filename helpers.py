@@ -1,6 +1,7 @@
 # Description: Helper functions for the application
 
 
+# import libraries
 from functools import wraps
 from flask import session, flash, redirect
 

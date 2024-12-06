@@ -60,6 +60,7 @@ def login():
         
         # store user id in session
         session["user_id"] = user.id
+        session["username"] = user.username
         flash("Logged in successfully!")
         return redirect("/")
         
@@ -86,9 +87,14 @@ def register():
             flash("Username and password are required!")
             return redirect("/register")
         
-        # check password length
-        if len(password) < 8:
-            flash("Password must be at least 8 characters long!")
+        # check username characters and length
+        if not username.isalnum() or len(username) > 20:
+            flash("Username must contain only letters and digits and be at most 20 characters long!")
+            return redirect("/register")
+        
+        # check password length and characters
+        if len(password) < 8 or not any(char.isupper() for char in password) or not any(char.islower() for char in password) or not any(char.isdigit() for char in password):
+            flash("Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one digit!")
             return redirect("/register")
 
         # check password confirmation
