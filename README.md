@@ -81,8 +81,8 @@ Chatterbox/
 ├── static/               # Static files
 │   ├── scripts.js        # JS for the website
 │   └── styles.css        # CSS for the website
-└── .devcontainer/        # Devcontainer configuration
-    └── devcontainer.json
+└── .devcontainer/
+    └── devcontainer.json # Devcontainer configuration
 ```
 
 ## Future Enhancements
