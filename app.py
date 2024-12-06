@@ -95,8 +95,8 @@ def register():
             return redirect("/register")
         
         # check password length and characters
-        if len(password) < 8 or not any(char.isupper() for char in password) or not any(char.islower() for char in password) or not any(char.isdigit() for char in password):
-            flash("Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one digit!")
+        if len(password) < 8 or len(password) > 200 or not any(char.isupper() for char in password) or not any(char.islower() for char in password) or not any(char.isdigit() for char in password):
+            flash("Password must be between 8 and 200 characters long and contain at least one uppercase letter, one lowercase letter, and one digit!")
             return redirect("/register")
 
         # check password confirmation
