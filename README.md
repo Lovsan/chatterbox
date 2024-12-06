@@ -104,7 +104,3 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 ## Author
 Filip Rokita  
 [www.filiprokita.com](https://www.filiprokita.com/)
-
----
-
-Happy coding! 🎉
