@@ -31,7 +31,7 @@
                 </ul>
                 <div class="d-flex">
                     {% if session.get("user_id") %}
-                        <span class="navbar-text mx-1">Welcome, {{ session["username"] }}</span>
+                        <span class="navbar-text mx-3">Welcome, {{ session["username"] }}</span>
                         <a href="/logout" class="btn btn-outline-primary mx-1">Logout</a>
                     {% else %}
                         <a href="/login" class="btn btn-outline-primary mx-1">Login</a>
