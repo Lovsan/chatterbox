@@ -5,8 +5,10 @@
 from flask import Flask, render_template, request, flash, redirect, session
 from flask_session import Session
 from models import db, User, Message
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 import os
+from functools import wraps
+from helpers import *
 
 
 # create app
@@ -41,7 +43,35 @@ def author():
 # login page
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    if request.method == "POST":
+        username = request.form.get("username")
+        password = request.form.get("password")
+
+        # check if username and password are provided
+        if not username or not password:
+            flash("Username and password are required!")
+            return redirect("/login")
+        
+        # check username and password
+        user = User.query.filter_by(username=username).first()
+        if not user or not check_password_hash(user.password, password):
+            flash("Invalid username or password!")
+            return redirect("/login")
+        
+        # store user id in session
+        session["user_id"] = user.id
+        flash("Logged in successfully!")
+        return redirect("/")
+        
     return render_template("login.html")
+
+
+# logout
+@app.route("/logout")
+def logout():
+    session.clear()
+    flash("Logged out successfully!")
+    return redirect("/")
 
 
 # register page

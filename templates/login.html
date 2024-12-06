@@ -2,5 +2,18 @@
 {% block title %}Register{% endblock %}
 
 {% block main %}
-Work in progress...
+<!-- Login form -->
+<form action="/login" method="post" class="text-start mx-auto" style="max-width: 400px;">
+    <!-- Username -->
+    <div class="mb-3">
+        <label class="form-label">Username</label>
+        <input type="text" class="form-control" name="username">
+    </div>
+    <!-- Password -->
+    <div class="mb-3">
+        <label class="form-label">Password</label>
+        <input type="password" class="form-control" name="password">
+    </div>
+    <button type="submit" class="btn btn-primary">Login</button>
+</form>
 {% endblock %}
