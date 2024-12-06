@@ -15,3 +15,15 @@ def login_required(f):
             return redirect("/login")
         return f(*args, **kwargs)
     return decorated_function
+
+
+
+# logout required
+def logout_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if session.get("user_id"):
+            flash("You are already logged in.")
+            return redirect("/chat")
+        return f(*args, **kwargs)
+    return decorated_function

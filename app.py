@@ -40,8 +40,9 @@ def author():
     return render_template("author.html")
 
 
-# login page
+# login page (logOUT required)
 @app.route("/login", methods=["GET", "POST"])
+@logout_required
 def login():
     if request.method == "POST":
         username = request.form.get("username")
@@ -62,7 +63,7 @@ def login():
         session["user_id"] = user.id
         session["username"] = user.username
         flash("Logged in successfully!")
-        return redirect("/")
+        return redirect("/chat")
         
     return render_template("login.html")
 
@@ -75,8 +76,9 @@ def logout():
     return redirect("/")
 
 
-# register page
+# register page (logOUT required)
 @app.route("/register", methods=["GET", "POST"])
+@logout_required
 def register():
     if request.method == "POST":
         username = request.form.get("username")
@@ -119,6 +121,13 @@ def register():
         return redirect("/login")
     
     return render_template("register.html")
+
+
+# TODO: chat page (login required)
+@app.route("/chat", methods=["GET", "POST"])
+@login_required
+def chat():
+    return render_template("chat.html")
 
 
 # run the app
