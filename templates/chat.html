@@ -58,4 +58,14 @@
         {% endif %}
     </div>
 </div>
+
+<!-- JavaScript to scroll chat box to the bottom -->
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const chatBox = document.getElementById("chat-box");
+        if (chatBox) {
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+    });
+</script>
 {% endblock %}
