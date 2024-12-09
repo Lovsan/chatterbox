@@ -35,7 +35,7 @@
             {% if recipient %}
             <h5>Chat with {{ recipient.username }}</h5>
             <!-- Chat -->
-            <div id="chat-box" style="height: 58vh; overflow-y: auto;">
+            <div id="chat-box" style="height: 58vh; overflow-y: auto; word-wrap: break-word;">
                 {% for message in messages %}
                 <div class="mb-2">
                     <strong>{{ 'You' if message.user_id == session['user_id'] else message.sender.username }}: </strong>
