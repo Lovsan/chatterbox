@@ -130,9 +130,13 @@ def register():
 @login_required
 def chat():
     # get recent users
-    recent_users = User.query.join(
-        Message, (Message.user_id == session["user_id"]) | (Message.recipient_id == session["user_id"])
-        ).filter(User.id != session["user_id"]).distinct().all()
+    recent_users_ids = db.session.query(Message.user_id).filter(
+        Message.recipient_id == session["user_id"]
+    ).union(
+        db.session.query(Message.recipient_id).filter(Message.user_id == session["user_id"])
+    ).distinct()
+
+    recent_users = User.query.filter(User.id.in_(recent_users_ids)).all()
     
     # get recipient
     recipient_id = request.args.get("recipient_id", type=int)
