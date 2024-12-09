@@ -143,7 +143,7 @@ def chat():
     recent_users = User.query.filter(User.id.in_(recent_users_ids)).all()
     
     # get recipient
-    recipient_id = request.args.get("recipient_id", type=int) or request.form.get("recipient_id", type=int)
+    recipient_id = request.args.get("recipient_id", type=int)
     recipient = User.query.get(recipient_id) if recipient_id else None
 
     # get recent messages
@@ -156,6 +156,7 @@ def chat():
     
     # IF POST: add message to database
     if request.method=="POST":
+        recipient_id = request.form.get("recipient_id", type=int)
         message_text = request.form.get("message")
 
         # check if recipient and message are provided
