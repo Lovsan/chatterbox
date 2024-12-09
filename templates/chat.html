@@ -10,7 +10,7 @@
             <h5>Users</h5>
             <!-- List of users -->
              <ul class="list-group">
-                {% for user in users %}
+                {% for user in recent_users %}
                     <li class="list-group-item">
                         <a href="/chat?recipient_id={{ user.id }}"
                         class="text-decoration-none {{ 'fw-bold' if user.id == recipient_id }}">
