@@ -117,17 +117,105 @@ def register():
         db.session.add(new_user)
         db.session.commit()
 
+        # flash message and redirect to login
         flash("Account created successfully! Please log in.")
         return redirect("/login")
     
+    # render register page
     return render_template("register.html")
 
 
-# TODO: chat page (login required)
+# chat page (login required)
 @app.route("/chat", methods=["GET", "POST"])
 @login_required
 def chat():
-    return render_template("chat.html")
+    # get recent users
+    recent_users = User.query.join(
+        Message, (Message.user_id == session["user_id"]) | (Message.recipient_id == session["user_id"])
+        ).filter(User.id != session["user_id"]).distinct().all()
+    
+    # get recipient
+    recipient_id = request.args.get("recipient_id", type=int)
+    recipient = User.query.get(recipient_id) if recipient_id else None
+
+    # get recent messages
+    messages = []
+    if recipient:
+        messages = Message.query.filter(
+            ((Message.user_id == session["user_id"]) & (Message.recipient_id == recipient_id)) |
+            ((Message.user_id == recipient_id) & (Message.recipient_id == session["user_id"]))
+        ).order_by(Message.timestamp.asc()).all()
+    
+    # IF POST: add message to database
+    if request.method=="POST":
+        recipient_id = request.form.get("recipient_id", type=int)
+        message_text = request.form.get("message")
+
+        # check if recipient and message are provided
+        if not recipient_id or not message_text:
+            flash("Recipient and message are required!")
+            return redirect(f"/chat?recipient_id={recipient_id}")
+        
+        # check if recipient exists
+        recipient = User.query.get(recipient_id)
+        if not recipient:
+            flash("Recipient not found!")
+            return redirect("/chat")
+
+        # strip message text
+        message_text = message_text.strip()
+        
+        # check message length
+        if len(message_text) > 500:
+            flash("Message must be at most 500 characters long!")
+            return redirect(f"/chat?recipient_id={recipient_id}")
+        
+        # create a new message and add it to database
+        new_message = Message(
+            user_id=session["user_id"],
+            recipient_id=recipient_id,
+            text=message_text
+        )
+        db.session.add(new_message)
+        db.session.commit()
+
+        # flash message and redirect to chat
+        return redirect(f"/chat?recipient_id={recipient_id}")
+
+    # return chat page
+    return render_template(
+        "chat.html",
+        recent_users=recent_users,
+        messages=messages,
+        recipient=recipient,
+        recipient_id=recipient_id
+        )
+
+
+# start chat with a new user (login required)
+@app.route("/chat/start", methods=["POST"])
+@login_required
+def chat_start():
+    username = request.form.get("username").strip()
+
+    # check if username is provided
+    if not username:
+        flash("Recipient username is required!")
+        return redirect("/chat")
+    
+    # check if recipient is not the current user
+    if username == session["username"]:
+        flash("You cannot start a chat with yourself!")
+        return redirect("/chat")
+    
+    # check if recipient exists
+    recipient = User.query.filter_by(username=username).first()
+    if not recipient:
+        flash("User not found!")
+        return redirect("/chat")
+    
+    # redirect to chat with recipient
+    return redirect(f"/chat?recipient_id={recipient.id}")
 
 
 # run the app

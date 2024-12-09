@@ -4,16 +4,58 @@
 {% block main %}
 <div class="container-fluid">
     <div class="row">
+
         <!-- Left column (users)-->
-        <div class="col-3 border-end" style="height: 75vh; overflow-y: auto;">
-            <h5>Chats</h5>
-            <!-- TODO: List of users -->
+        <div class="col-3 border-end" style="height: 70vh; overflow-y: auto;">
+            <h5>Users</h5>
+            <!-- List of users -->
+             <ul class="list-group">
+                {% for user in users %}
+                    <li class="list-group-item">
+                        <a href="/chat?recipient_id={{ user.id }}"
+                        class="text-decoration-none {{ 'fw-bold' if user.id == recipient_id }}">
+                            {{ user.username}}
+                        </a>
+                    </li>
+                {% endfor %}
+            </ul>
+
+            <!-- Add new user -->
+             <form action="/chat/start" method="post" class="mt-3">
+                <div class="input-group">
+                    <input type="text" name="username" class="form-control" placeholder="Enter username..." required>
+                    <button type="submit" class="btn btn-primary">Add</button>
+                </div>
+            </form>
         </div>
+
 
         <!-- Right column (chat)-->
         <div class="col-9">
-            <!-- TODO: Chat -->
+            {% if recipient %}
+            <h5>Chat with {{ recipient.username }}</h5>
+            <!-- Chat -->
+            <div id="chat-box" style="height: 58vh; overflow-y: auto;">
+                {% for message in messages %}
+                <div class="mb-2">
+                    <strong>{{ 'You' if message.user_id == session['user_id'] else message.sender.username }}: </strong>
+                    {{ message.text }}
+                    <small class="text-muted">{{ message.timestamp }}</small>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Form to send a message -->
+            <form action="/chat" method="post" class="mt-3">
+                <input type="hidden" name="recipient_id" value="{{ recipient_id }}">
+                <div class="input-group">
+                    <input type="text" name="message" class="form-control" placeholder="Type your message..." required>
+                    <button type="submit" class="btn btn-primary">Send</button>
+            </form>
         </div>
-     </div>
+        {% else %}
+        <p>Select user to start chatting.</p>
+        {% endif %}
+    </div>
 </div>
 {% endblock %}
