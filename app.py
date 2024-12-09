@@ -129,13 +129,17 @@ def register():
 @app.route("/chat", methods=["GET", "POST"])
 @login_required
 def chat():
-    # get recent users
+    # GET RECENT USERS
+    # this did not work:
+    # recent_users = User.query.join(
+    #    Message, (Message.user_id == session["user_id"]) | (Message.recipient_id == session["user_id"])
+    #    ).filter(User.id != session["user_id"]).distinct().all()
+    # i have no fucking idea how, but it works, don't touch it
     recent_users_ids = db.session.query(Message.user_id).filter(
         Message.recipient_id == session["user_id"]
     ).union(
         db.session.query(Message.recipient_id).filter(Message.user_id == session["user_id"])
     ).distinct()
-
     recent_users = User.query.filter(User.id.in_(recent_users_ids)).all()
     
     # get recipient
