@@ -23,6 +23,7 @@
     height: 58vh;
     overflow-y: auto;
     word-wrap: break-word;
+    text-align: left;
 }
 
 #user-list {
