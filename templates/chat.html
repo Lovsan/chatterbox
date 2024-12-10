@@ -41,6 +41,11 @@
                     <strong>{{ 'You' if message.user_id == session['user_id'] else message.sender.username }}: </strong>
                     {{ message.text }}
                     <small class="text-muted">{{ message.timestamp.strftime('%Y-%m-%d %H:%M') }}</small>
+                    <!--
+                    <span class="username me-2">{{ 'You' if message.user_id == session['user_id'] else message.sender.username }}: </span>
+                    <span class="message-text">{{ message.text }}</span>
+                    <small class="text-muted">{{ message.timestamp.strftime('%Y-%m-%d %H:%M') }}</small>
+                    -->
                 </div>
                 {% endfor %}
             </div>

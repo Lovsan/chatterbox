@@ -2,13 +2,25 @@
     max-width: 400px;
 }
 
-#user-list {
-    height: 70vh;
-    overflow-y: auto;
+/*
+.message-text {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
+
+.username {
+    font-weight: bold;
+    white-space: nowrap;
+}
+*/
 
 #chat-box {
     height: 58vh;
     overflow-y: auto;
     word-wrap: break-word;
+}
+
+#user-list {
+    height: 70vh;
+    overflow-y: auto;
 }
