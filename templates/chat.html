@@ -40,7 +40,7 @@
                 <div class="mb-2">
                     <strong>{{ 'You' if message.user_id == session['user_id'] else message.sender.username }}: </strong>
                     {{ message.text }}
-                    <small class="text-muted">{{ message.timestamp }}</small>
+                    <small class="text-muted">{{ message.timestamp.strftime('%Y-%m-%d %H:%M') }}</small>
                 </div>
                 {% endfor %}
             </div>
