@@ -9,6 +9,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import os
 from functools import wraps
 from helpers import *
+from sqlalchemy import func
 
 
 # create app
@@ -130,17 +131,34 @@ def register():
 @login_required
 def chat():
     # GET RECENT USERS
+    #
     # this did not work:
     # recent_users = User.query.join(
     #    Message, (Message.user_id == session["user_id"]) | (Message.recipient_id == session["user_id"])
     #    ).filter(User.id != session["user_id"]).distinct().all()
-    # this works:
-    recent_users_ids = db.session.query(Message.user_id).filter(
-        Message.recipient_id == session["user_id"]
-    ).union(
-        db.session.query(Message.recipient_id).filter(Message.user_id == session["user_id"])
-    ).distinct()
-    recent_users = User.query.filter(User.id.in_(recent_users_ids)).all()
+    #
+    # this kinda works:
+    # recent_users_ids = db.session.query(Message.user_id).filter(
+    #     Message.recipient_id == session["user_id"]
+    # ).union(
+    #     db.session.query(Message.recipient_id).filter(Message.user_id == session["user_id"])
+    # ).distinct()
+    # recent_users = User.query.filter(User.id.in_(recent_users_ids)).all()
+    #
+    # this fully works:
+    recent_users = db.session.query(
+        User, func.max(Message.timestamp).label("last_message_time")
+    ).join(
+        Message, (Message.user_id == User.id) | (Message.recipient_id == User.id)
+    ).filter(
+        (Message.user_id == session["user_id"]) | (Message.recipient_id == session["user_id"])
+    ).filter(
+        User.id != session["user_id"]
+    ).group_by(
+        User.id
+    ).order_by(
+        func.max(Message.timestamp).desc()
+    ).all()
     
     # get recipient
     recipient_id = request.args.get("recipient_id", type=int)
