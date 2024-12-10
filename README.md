@@ -1,6 +1,6 @@
 # Chatterbox
 
-<p align="center"
+<p align="center">
    <img src="misc/mockup.png" width="500">
 </p>
 
