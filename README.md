@@ -4,7 +4,7 @@
    <img src="misc/mockup.png" width="500">
 </div>
 
-## Description
+---
 
 **⚠️⚠️⚠️ CHATTERBOX IS CURRENTLY UNDER ACTIVE DEVELOPMENT, AND THE DOCUMENTATION MAY NOT BE FULLY UP-TO-DATE. LAST DOCUMENTATION UPDATE: 6.12.2024 ⚠️⚠️⚠️**
 
