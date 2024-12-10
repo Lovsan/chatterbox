@@ -1,8 +1,8 @@
 # Chatterbox
 
-<p align="center">
+<div align="center">
    <img src="misc/mockup.png" width="500">
-</p>
+</div>
 
 **⚠️⚠️⚠️ CHATTERBOX IS CURRENTLY UNDER ACTIVE DEVELOPMENT, AND THE DOCUMENTATION MAY NOT BE FULLY UP-TO-DATE. LAST DOCUMENTATION UPDATE: 6.12.2024 ⚠️⚠️⚠️**
 
