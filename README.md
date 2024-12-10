@@ -2,6 +2,10 @@
 
 **⚠️⚠️⚠️ CHATTERBOX IS CURRENTLY UNDER ACTIVE DEVELOPMENT, AND THE DOCUMENTATION MAY NOT BE FULLY UP-TO-DATE. LAST DOCUMENTATION UPDATE: 6.12.2024 ⚠️⚠️⚠️**
 
+<center>
+   <img src="misc/mockup.png" width="500">
+</center>
+
 Chatterbox is a simple real-time chat application built using Python, Flask, SQL, HTML, CSS (with Bootstrap), and JavaScript. It allows users to register, log in, and send messages to a chatroom.
 
 ## Features
