@@ -13,7 +13,7 @@ db_path = os.path.join("instance", "chatterbox.db")
 # check if the database file exists and remove it
 if os.path.exists(db_path):
     # ask the user for confirmation
-    print("Existing database will be REMOVED.")
+    print("Existing database will be REMOVED!")
     confirmation = input("Do you want to continue? (y/n): ")
     if confirmation.lower() != "y":
         print("Operation cancelled")
