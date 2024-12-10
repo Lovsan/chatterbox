@@ -2,7 +2,7 @@
 
 
 # import
-from flask import Flask, render_template, request, flash, redirect, session
+from flask import Flask, render_template, request, flash, redirect, session, url_for
 from flask_session import Session
 from models import db, User, Message
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -52,19 +52,19 @@ def login():
         # check if username and password are provided
         if not username or not password:
             flash("Username and password are required!")
-            return redirect("/login")
+            return redirect(url_for("login"))
         
         # check username and password
         user = User.query.filter_by(username=username).first()
         if not user or not check_password_hash(user.password, password):
             flash("Invalid username or password!")
-            return redirect("/login")
+            return redirect(url_for("login"))
         
         # store user id in session
         session["user_id"] = user.id
         session["username"] = user.username
         flash("Logged in successfully!")
-        return redirect("/chat")
+        return redirect(url_for("chat"))
         
     return render_template("login.html")
 
@@ -74,7 +74,7 @@ def login():
 def logout():
     session.clear()
     flash("Logged out successfully!")
-    return redirect("/")
+    return redirect(url_for("home"))
 
 
 # register page (logOUT required)
@@ -88,29 +88,29 @@ def register():
         # check if username and password are provided
         if not username or not password:
             flash("Username and password are required!")
-            return redirect("/register")
+            return redirect(url_for("register"))
         
         # check username characters and length
         if not username.isalnum() or len(username) > 20:
             flash("Username must contain only letters and digits and be at most 20 characters long!")
-            return redirect("/register")
+            return redirect(url_for("register"))
         
         # check password length and characters
         if len(password) < 8 or len(password) > 200 or not any(char.isupper() for char in password) or not any(char.islower() for char in password) or not any(char.isdigit() for char in password):
             flash("Password must be between 8 and 200 characters long and contain at least one uppercase letter, one lowercase letter, and one digit!")
-            return redirect("/register")
+            return redirect(url_for("register"))
 
         # check password confirmation
         confirm_password = request.form.get("confirm-password")
         if password != confirm_password:
             flash("Passwords do not match!")
-            return redirect("/register")
+            return redirect(url_for("register"))
         
         # check if username already exists
         user = User.query.filter_by(username=username).first()
         if user:
             flash("Username already exists!")
-            return redirect("/register")
+            return redirect(url_for("register"))
         
         # create a new user
         hashed_password = generate_password_hash(password, method="pbkdf2:sha256")
@@ -120,7 +120,7 @@ def register():
 
         # flash message and redirect to login
         flash("Account created successfully! Please log in.")
-        return redirect("/login")
+        return redirect(url_for("login"))
     
     # render register page
     return render_template("register.html")
@@ -180,13 +180,13 @@ def chat():
         # check if recipient and message are provided
         if not recipient_id or not message_text:
             flash("Recipient and message are required!")
-            return redirect(f"/chat?recipient_id={recipient_id}")
+            return redirect(url_for("chat", recipient_id=recipient_id))
         
         # check if recipient exists
         recipient = User.query.get(recipient_id)
         if not recipient:
             flash("Recipient not found!")
-            return redirect("/chat")
+            return redirect(url_for("chat"))
 
         # strip message text
         message_text = message_text.strip()
@@ -194,7 +194,7 @@ def chat():
         # check message length
         if len(message_text) > 500:
             flash("Message must be at most 500 characters long!")
-            return redirect(f"/chat?recipient_id={recipient_id}")
+            return redirect(url_for("chat", recipient_id=recipient_id))
         
         # create a new message and add it to database
         new_message = Message(
@@ -206,7 +206,7 @@ def chat():
         db.session.commit()
 
         # flash message and redirect to chat
-        return redirect(f"/chat?recipient_id={recipient_id}")
+        return redirect(url_for("chat", recipient_id=recipient_id))
 
     # return chat page
     return render_template(
@@ -227,21 +227,21 @@ def chat_start():
     # check if username is provided
     if not username:
         flash("Recipient username is required!")
-        return redirect("/chat")
+        return redirect(url_for("chat"))
     
     # check if recipient is not the current user
     if username == session["username"]:
         flash("You cannot start a chat with yourself!")
-        return redirect("/chat")
+        return redirect(url_for("chat"))
     
     # check if recipient exists
     recipient = User.query.filter_by(username=username).first()
     if not recipient:
         flash("User not found!")
-        return redirect("/chat")
+        return redirect(url_for("chat"))
     
     # redirect to chat with recipient
-    return redirect(f"/chat?recipient_id={recipient.id}")
+    return redirect(url_for("chat", recipient_id=recipient.id))
 
 
 # run the app
