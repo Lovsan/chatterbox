@@ -1,3 +1,14 @@
 .access-form {
     max-width: 400px;
 }
+
+#user-list {
+    height: 70vh;
+    overflow-y: auto;
+}
+
+#chat-box {
+    height: 58vh;
+    overflow-y: auto;
+    word-wrap: break-word;
+}

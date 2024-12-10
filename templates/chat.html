@@ -6,7 +6,7 @@
     <div class="row">
 
         <!-- Left column (users)-->
-        <div class="col-3 border-end" style="height: 70vh; overflow-y: auto;">
+        <div id="user-list" class="col-3 border-end">
             <h5>Users</h5>
             <!-- List of users -->
              <ul class="list-group">
@@ -35,7 +35,7 @@
             {% if recipient %}
             <h5>Chat with {{ recipient.username }}</h5>
             <!-- Chat -->
-            <div id="chat-box" style="height: 58vh; overflow-y: auto; word-wrap: break-word;">
+            <div id="chat-box">
                 {% for message in messages %}
                 <div class="mb-2">
                     <strong>{{ 'You' if message.user_id == session['user_id'] else message.sender.username }}: </strong>
