@@ -38,7 +38,9 @@
             <div id="chat-box">
                 {% for message in messages %}
                 <div class="mb-2">
-                    <strong>{{ 'You' if message.user_id == session['user_id'] else message.sender.username }}: </strong>
+                    <strong class="{{ 'text-primary' if message.user_id == session['user_id'] else 'text-secondary' }}">
+                        {{ 'You' if message.user_id == session['user_id'] else message.sender.username }}: 
+                    </strong>
                     {{ message.text }}
                     <small class="text-muted">{{ message.timestamp.strftime('%Y-%m-%d %H:%M') }}</small>
                     <!--
