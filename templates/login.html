@@ -3,7 +3,7 @@
 
 {% block main %}
 <!-- Login form -->
-<form action="/login" method="post" class="access-form text-start mx-auto">
+<form action="{{ url_for('login') }}" method="post" class="access-form text-start mx-auto">
     <!-- Username -->
     <div class="mb-3">
         <label class="form-label">Username</label>

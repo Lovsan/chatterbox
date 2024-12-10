@@ -3,7 +3,7 @@
 
 {% block main %}
 <!-- Register form -->
-<form action="/register" method="post" class="access-form text-start mx-auto">
+<form action="{{ url_for('register') }}" method="post" class="access-form text-start mx-auto">
     <!-- Username -->
     <div class="mb-3">
         <label class="form-label">Username</label>
