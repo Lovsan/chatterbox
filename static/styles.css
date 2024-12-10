@@ -2,6 +2,11 @@
     max-width: 400px;
 }
 
+.active {
+    color: white;
+    font-weight: bold;
+}
+
 /*
 .message-text {
     word-wrap: break-word;
