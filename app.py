@@ -43,6 +43,7 @@ def author():
 @app.route("/login", methods=["GET", "POST"])
 @logout_required
 def login():
+    # IF POST: check username and password
     if request.method == "POST":
         username = request.form.get("username")
         password = request.form.get("password")
@@ -70,6 +71,7 @@ def login():
 # logout
 @app.route("/logout")
 def logout():
+    # clear session and flash message
     session.clear()
     flash("Logged out successfully!")
     return redirect(url_for("home"))
@@ -79,6 +81,7 @@ def logout():
 @app.route("/register", methods=["GET", "POST"])
 @logout_required
 def register():
+    # IF POST: create a new user
     if request.method == "POST":
         username = request.form.get("username")
         password = request.form.get("password")
@@ -220,6 +223,7 @@ def chat():
 @app.route("/chat/start", methods=["POST"])
 @login_required
 def chat_start():
+    # get recipient username
     username = request.form.get("username").strip()
 
     # check if username is provided
