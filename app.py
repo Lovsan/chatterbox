@@ -6,8 +6,6 @@ from flask import Flask, render_template, request, flash, redirect, session, url
 from flask_session import Session
 from models import db, User, Message
 from werkzeug.security import generate_password_hash, check_password_hash
-import os
-from functools import wraps
 from helpers import login_required, logout_required
 from sqlalchemy import func
 
