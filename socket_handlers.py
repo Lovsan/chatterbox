@@ -6,6 +6,7 @@
 
 # import
 from flask_socketio import emit, join_room, leave_room
+from flask import session
 from helpers import login_required
 from flask_session import Session
 from models import User, db, Message
@@ -77,7 +78,3 @@ def register_socket_handlers(socketio):
         # send message to sender and recipient
         emit("receive_message", message_data, room=session["user_id"])
         emit("receive_message", message_data, room=recipient_id)
-
-
-
-
