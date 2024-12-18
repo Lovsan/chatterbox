@@ -7,12 +7,15 @@
     <h1 class="display-4">Welcome to Chatterbox!</h1>
     <p class="lead">Experience seamless real-time conversations with friends, teams, and communities.</p>
     <hr class="my-4">
-    <p>Log in to start chatting, or create a new account to join the conversation!</p>
-    <!-- Register & login buttons -->
-    <p class="lead">
-        <a class="btn btn-primary btn-lg mx-2" href="{{ url_for('login') }}" role="button">Login</a>
-        <a class="btn btn-secondary btn-lg mx-2" href="{{ url_for('register') }}" role="button">Register</a>
-    </p>
+    <!-- If user is not logged in -->
+    {% if not session.get("user_id") %}
+        <p>Log in to start chatting, or create a new account to join the conversation!</p>
+        <!-- Register & login buttons -->
+        <p class="lead">
+            <a class="btn btn-primary btn-lg mx-2" href="{{ url_for('login') }}" role="button">Login</a>
+            <a class="btn btn-secondary btn-lg mx-2" href="{{ url_for('register') }}" role="button">Register</a>
+        </p>
+    {% endif %}
 </div>
 
 <!-- Feature highlights section -->
