@@ -5,13 +5,13 @@
 <!-- Jumbotron -->
 <div class="jumbotron text-center">
     <h1 class="display-4">Welcome to Chatterbox!</h1>
-    <p class="lead">A simple real-time chat application built with Python, SQL, and JavaScript.</p>
+    <p class="lead">Experience seamless real-time conversations with friends, teams, and communities.</p>
     <hr class="my-4">
-    <p>Get started by registering an account or logging in if you already have one.</p>
+    <p>Log in to start chatting, or create a new account to join the conversation!</p>
     <!-- Register & login buttons -->
     <p class="lead">
-        <a class="btn btn-primary btn-lg mx-2" href="{{ url_for('register') }}" role="button">Register</a>
-        <a class="btn btn-secondary btn-lg mx-2" href="{{ url_for('login') }}" role="button">Login</a>
+        <a class="btn btn-primary btn-lg mx-2" href="{{ url_for('login') }}" role="button">Login</a>
+        <a class="btn btn-secondary btn-lg mx-2" href="{{ url_for('register') }}" role="button">Register</a>
     </p>
 </div>
 
@@ -19,18 +19,18 @@
 <div class="row mt-5">
     <!-- Feature 1 -->
     <div class="col-md-4">
-        <h3>Real-Time Messaging</h3>
-        <p>Chat with other users in real-time. Messages are saved to the database and displayed instantly.</p>
+        <h3>Instant Messaging</h3>
+        <p>Exchange messages in real-time with lightning-fast delivery and automatic saving - no delays, just seamless chats.</p>
     </div>
     <!-- Feature 2 -->
     <div class="col-md-4">
-        <h3>User Authentication</h3>
-        <p>Securely register and log in to your account. Your credentials are safely stored using industry-standard encryption.</p>
+        <h3>Secure Accounts</h3>
+        <p>Rest easy with advanced security - register and log in knowing your data is protected by cutting-edge encryption.</p>
     </div>
     <!-- Feature 3 -->
     <div class="col-md-4">
-        <h3>Responsive Design</h3>
-        <p>Enjoy a clean and responsive interface, ensuring a seamless experience on any device.</p>
+        <h3>Optimized for All Devices</h3>
+        <p>Stay connected anytime, anywhere with a sleek, responsive design that works beautifully on phones, tablets, and desktops.</p>
     </div>
 </div>
 {% endblock %}
