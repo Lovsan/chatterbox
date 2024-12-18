@@ -32,17 +32,28 @@ def register_event_handlers(socketio, app):
         recipient = User.query.filter_by(username=data["recipient"]).first()
         
         # Check if the recipient exists
-        if recipient:
-            # Create a new message and add it to the database
-            new_message = Message(
-                user_id=session["user_id"],
-                recipient_id=recipient.id,
-                text=data["message"]
-            )
-            # Add the new message to the database
-            db.session.add(new_message)
-            db.session.commit()
-            
-            # Emit the "receive_message" event to all connected clients
-            # TODO: THIS IS NOT SAFE! FIX THIS!
-            emit("receive_message", data, broadcast=True)
+        if not recipient:
+            emit("error", {"error": "Recipient not found!"})
+            return
+        
+        # Strip message text
+        message_text = data["message"].strip()
+        
+        # Check message length
+        if len(message_text) > 500:
+            emit("error", {"error": "Message must be at most 500 characters long!"})
+            return
+        
+        # Create a new message
+        new_message = Message(
+            user_id=session["user_id"],
+            recipient_id=recipient.id,
+            text=message_text
+        )
+        # Add the new message to the database
+        db.session.add(new_message)
+        db.session.commit()
+        
+        # Emit the "receive_message" event to all connected clients
+        # TODO: THIS IS NOT SAFE! FIX THIS!
+        emit("receive_message", data, broadcast=True)
