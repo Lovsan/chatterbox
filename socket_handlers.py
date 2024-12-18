@@ -67,7 +67,7 @@ def register_socket_handlers(socketio):
         db.session.add(new_message)
         db.session.commit()
 
-        # prepare message
+        # prepare message data to send to sender and recipient
         message_data = {
             "user_id": new_message.user_id,
             "recipient_id": new_message.recipient_id,
