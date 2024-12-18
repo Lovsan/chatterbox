@@ -2,7 +2,7 @@
 
 
 # import
-from flask_socketio import emit
+from flask_socketio import emit, join_room, leave_room
 from flask import session
 from models import User, Message, db
 
@@ -16,6 +16,7 @@ def register_event_handlers(socketio, app):
         app: The Flask app instance.
     """
     
+
     @socketio.on("send_message")
     def handle_send_message(data):
         """
@@ -64,6 +65,32 @@ def register_event_handlers(socketio, app):
         db.session.add(new_message)
         db.session.commit()
         
-        # Emit the "receive_message" event to all connected clients
-        # TODO: THIS IS NOT SAFE! FIX THIS!
-        emit("receive_message", data, broadcast=True)
+        # Emit the "receive_message" event to the intended recipient and sender
+        recipient_room = f"user_{recipient.id}"
+        sender_room = f"user_{session['user_id']}"
+        emit("receive_message", data, room=recipient_room)
+        emit("receive_message", data, room=sender_room)
+
+
+    @socketio.on("connect")
+    def handle_connect():
+        """
+        Handle the "connect" event.
+        """
+
+        # Join the user's room
+        user_id = session.get("user_id")
+        if user_id:
+            join_room(f"user_{user_id}")
+    
+
+    @socketio.on("disconnect")
+    def handle_disconnect():
+        """
+        Handle the "disconnect" event.
+        """
+        
+        # Leave the user's room
+        user_id = session.get("user_id")
+        if user_id:
+            leave_room(f"user_{user_id}")
