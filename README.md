@@ -6,9 +6,9 @@
 
 ---
 
-**⚠️⚠️⚠️ CHATTERBOX IS CURRENTLY UNDER ACTIVE DEVELOPMENT, AND THE DOCUMENTATION MAY NOT BE FULLY UP-TO-DATE. LAST DOCUMENTATION UPDATE: 6.12.2024 ⚠️⚠️⚠️**
+**⚠️⚠️⚠️ CHATTERBOX IS CURRENTLY UNDER ACTIVE DEVELOPMENT, AND THE DOCUMENTATION MAY NOT BE FULLY UP-TO-DATE. LAST DOCUMENTATION UPDATE: 18.12.2024 ⚠️⚠️⚠️**
 
-Chatterbox is a simple real-time chat application built using Python, Flask, SQL, HTML, CSS (with Bootstrap), and JavaScript. It allows users to register, log in, and send messages to a chatroom.
+Chatterbox is a simple real-time chat application built using Python, Flask SQL, JavaScript, HTML, and CSS (with Bootstrap). It allows users to register, log in, and send messages to a chatroom.
 
 ## Features
 
@@ -73,22 +73,32 @@ chatterbox/
 ├── init_db.py            # Database initialization script
 ├── requirements.txt      # Python dependencies
 ├── helpers.py            # Helper functions and decorators
+├── event_handlers.py     # Event handling logic
 ├── .gitignore            # Gitignore file
-├── README.md             # This file
+├── README.md             # Project documentation
+├── LICENSE               # Project license
+│
 ├── instance/
 │   └── chatterbox.db     # SQLite database file
+│
 ├── templates/            # HTML templates
 │   ├── layout.html       # Base layout template
 │   ├── home.html         # Homepage template
 │   ├── login.html        # Login page template
 │   ├── register.html     # Registration page template
 │   ├── chat.html         # Chat page template
-│   └── author.html       # Information about author
+│   └── author.html       # Author information page
+│
 ├── static/               # Static files
-│   ├── scripts.js        # JS for the website
-│   └── styles.css        # CSS for the website
-└── .devcontainer/
-    └── devcontainer.json # Devcontainer configuration
+│   ├── favicon.ico       # Favicon
+│   ├── logo.png          # Logo image
+│   ├── scripts.js        # JavaScript for the website
+│   ├── websocket.js      # WebSocket JavaScript
+│   └── styles.css        # CSS for styling
+│
+├── misc/                 # Miscellaneous files
+│
+└── .devcontainer/        # Dev container configuration
 ```
 
 ## Future Enhancements
