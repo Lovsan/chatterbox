@@ -9,7 +9,7 @@ from models import db, User, Message
 from werkzeug.security import generate_password_hash, check_password_hash
 from helpers import login_required, logout_required
 from sqlalchemy import func
-from socketio_events import register_socketio_events
+from event_handlers import register_event_handlers
 
 
 # create app
@@ -30,7 +30,7 @@ Session(app)
 
 # initialize SocketIO
 socketio = SocketIO(app)
-register_socketio_events(socketio, app)
+register_event_handlers(socketio, app)
 
 
 # home page
