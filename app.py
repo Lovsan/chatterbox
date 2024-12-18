@@ -4,12 +4,12 @@
 # import
 from flask import Flask, render_template, request, flash, redirect, session, url_for
 from flask_session import Session
+from flask_socketio import SocketIO
 from models import db, User, Message
 from werkzeug.security import generate_password_hash, check_password_hash
 from helpers import login_required, logout_required
 from sqlalchemy import func
-from flask_socketio import SocketIO
-from socket_handlers import register_socket_handlers
+from socketio_events import register_socketio_events
 
 
 # create app
@@ -28,9 +28,9 @@ app.config["SESSION_PERMANENT"] = False
 app.config["SESSION_TYPE"] = "filesystem"
 Session(app)
 
-# configure socketio
+# initialize SocketIO
 socketio = SocketIO(app)
-register_socket_handlers(socketio)
+register_socketio_events(socketio, app)
 
 
 # home page
