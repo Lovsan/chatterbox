@@ -103,7 +103,6 @@ chatterbox/
 
 ## Future Enhancements
 
-- **Real-Time Messaging**: Implement real-time updates using Flask-SocketIO.
 - **User Profiles**: Add user profile pages and the ability to update account details.
 - **Enhanced UI**: Improve the design and usability of the chat interface.
 - **React Front-End (Optional)**: Migrate the front-end to React for a more dynamic and modern user experience.
