@@ -33,6 +33,21 @@ def register_event_handlers(socketio, app):
         # Log the message event
         # app.logger.info(f"{data["username"]} has sent message to {data["recipient"]}: {data["message"]}")
         
+        # Check if the user is logged in
+        if "user_id" not in session:
+            emit("error", {"error": "You must be logged in to send messages!"})
+            return
+
+        # Check if username is provided
+        if "username" not in data or not data["username"]:
+            emit("error", {"error": "Username is required!"})
+            return
+
+        # Check if the sender's username matches the logged in user's username
+        if data["username"] != session["username"]:
+            emit("error", {"error": "You are not authorized to send messages on behalf of other users!"})
+            return
+
         # Check if recipient is provided
         if "recipient" not in data or not data["recipient"]:
             emit("error", {"error": "Recipient is required!"})
