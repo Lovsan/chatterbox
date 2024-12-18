@@ -1,26 +1,32 @@
-document.addEventListener("DOMContentLoaded", function() {
-    const socket = io();
+// TODO: Idk what this does, but it's a script that is used in the chat.html file
 
-    // Scroll to the bottom of the chat box
-    const chatBox = document.getElementById("chat-box");
-    if (chatBox) {
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
+// Ensure that the document is fully loaded before running the script
+document.addEventListener("DOMContentLoaded", function() {
+    // Initialize SocketIO
+    const socket = io();
 
     // Handle message form submission
     const messageForm = document.getElementById("message-form");
     if (messageForm) {
         messageForm.addEventListener("submit", function(event) {
+            // Prevent the default form submission behavior
             event.preventDefault();
+            
+            // Get the message input element and its value
             const messageInput = document.getElementById("message-input");
             const recipientId = messageForm.dataset.recipientId;
             const message = messageInput.value.trim();
+            
+            // Check if the message is not empty
             if (message) {
+                // Emit the "send_message" event with the message data
                 socket.emit("send_message", {
-                    username: messageForm.dataset.username,
-                    recipient: messageForm.dataset.recipient,
-                    message: message
+                    username: messageForm.dataset.username, // Sender's username
+                    recipient: messageForm.dataset.recipient, // Recipient's username
+                    message: message // Message text
                 });
+                
+                // Clear the message input field
                 messageInput.value = "";
             }
         });
@@ -28,12 +34,17 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Handle receiving messages
     socket.on("receive_message", function(data) {
+        // Get the current recipient ID and username from the form's data attributes
         const currentRecipientId = messageForm.dataset.recipientId;
         const currentUsername = messageForm.dataset.username;
+        
+        // Get the chat box element
         const chatBox = document.getElementById("chat-box");
 
+        // Check if the received message is for the current chat
         if ((data.recipient === currentUsername && data.username === messageForm.dataset.recipient) ||
             (data.username === currentUsername && data.recipient === messageForm.dataset.recipient)) {
+            // Create a new message element
             const messageElement = document.createElement("div");
             messageElement.classList.add("mb-2");
             messageElement.innerHTML = `
@@ -43,6 +54,8 @@ document.addEventListener("DOMContentLoaded", function() {
                 ${data.message}
                 <small class="text-muted">${new Date().toLocaleString()}</small>
             `;
+            
+            // Append the message to the chat box and scroll to the bottom
             chatBox.appendChild(messageElement);
             chatBox.scrollTop = chatBox.scrollHeight;
         }
