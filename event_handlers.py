@@ -24,6 +24,10 @@ def register_event_handlers(socketio, app):
         
         Args:
             data: A dictionary containing the message data.
+        Data:
+            username: The sender's username.
+            recipient: The recipient's username.
+            message: The message text.
         """
 
         # Log the message event
@@ -34,14 +38,6 @@ def register_event_handlers(socketio, app):
             emit("error", {"error": "Recipient is required!"})
             return
 
-        # Find the recipient user by username
-        recipient = User.query.filter_by(username=data["recipient"]).first()
-        
-        # Check if the recipient exists
-        if not recipient:
-            emit("error", {"error": "Recipient not found!"})
-            return
-        
         # Strip message text
         message_text = data["message"].strip()
 
@@ -53,6 +49,14 @@ def register_event_handlers(socketio, app):
         # Check message length
         if len(message_text) > 500:
             emit("error", {"error": "Message must be at most 500 characters long!"})
+            return
+
+        # Find the recipient user by username
+        recipient = User.query.filter_by(username=data["recipient"]).first()
+        
+        # Check if the recipient exists
+        if not recipient:
+            emit("error", {"error": "Recipient not found!"})
             return
         
         # Create a new message

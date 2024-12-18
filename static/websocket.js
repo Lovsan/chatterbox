@@ -1,4 +1,4 @@
-// TODO: Idk what this does, but it's a script that is used in the chat.html file
+// This script handles the WebSocket communication between the client and the server
 
 // Ensure that the document is fully loaded before running the script
 document.addEventListener("DOMContentLoaded", function() {
@@ -14,7 +14,6 @@ document.addEventListener("DOMContentLoaded", function() {
             
             // Get the message input element and its value
             const messageInput = document.getElementById("message-input");
-            const recipientId = messageForm.dataset.recipientId;
             const message = messageInput.value.trim();
             
             // Check if the message is not empty
@@ -34,8 +33,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Handle receiving messages
     socket.on("receive_message", function(data) {
-        // Get the current recipient ID and username from the form's data attributes
-        const currentRecipientId = messageForm.dataset.recipientId;
+        // Get the current username from the form's data attributes
         const currentUsername = messageForm.dataset.username;
         
         // Get the chat box element
