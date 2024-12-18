@@ -8,6 +8,8 @@ from models import db, User, Message
 from werkzeug.security import generate_password_hash, check_password_hash
 from helpers import login_required, logout_required
 from sqlalchemy import func
+from flask_socketio import SocketIO
+from socket_handlers import register_socket_handlers
 
 
 # create app
@@ -25,6 +27,10 @@ db.init_app(app)
 app.config["SESSION_PERMANENT"] = False
 app.config["SESSION_TYPE"] = "filesystem"
 Session(app)
+
+# configure socketio
+socketio = SocketIO(app)
+register_socket_handlers(socketio)
 
 
 # home page
@@ -248,4 +254,4 @@ def chat_start():
 
 # run the app
 if __name__ == "__main__":
-    app.run(debug=True)
+    socketio.run(app, debug=True)
