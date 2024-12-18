@@ -33,22 +33,31 @@ socketio = SocketIO(app)
 register_event_handlers(socketio, app)
 
 
-# home page
 @app.route("/")
 def home():
+    """
+    Home page
+    """
+
     return render_template("home.html")
 
 
-# author page
 @app.route("/author")
 def author():
+    """
+    Author page
+    """
+
     return render_template("author.html")
 
 
-# login page (logOUT required)
 @app.route("/login", methods=["GET", "POST"])
 @logout_required
 def login():
+    """
+    Handle user login
+    """
+
     # IF POST: check username and password
     if request.method == "POST":
         username = request.form.get("username")
@@ -74,19 +83,25 @@ def login():
     return render_template("login.html")
 
 
-# logout
 @app.route("/logout")
 def logout():
+    """
+    Handle user logout
+    """
+
     # clear session and flash message
     session.clear()
     flash("Logged out successfully!")
     return redirect(url_for("home"))
 
 
-# register page (logOUT required)
 @app.route("/register", methods=["GET", "POST"])
 @logout_required
 def register():
+    """
+    Handle user registration
+    """
+
     # IF POST: create a new user
     if request.method == "POST":
         username = request.form.get("username")
@@ -133,10 +148,20 @@ def register():
     return render_template("register.html")
 
 
-# chat page (login required)
 @app.route("/chat", methods=["GET", "POST"])
 @login_required
 def chat():
+    """
+    Renders the chat page, handles message retrieval and sending.
+    GET:
+        - Retrieves recent users the current user has chatted with.
+        - Retrieves messages between the current user and a selected recipient.
+    POST:
+        - Sends a new message to a selected recipient.
+    Returns:
+        - Renders the chat page with recent users, messages, and recipient details.
+    """
+
     # GET RECENT USERS
     #
     # this did not work:
@@ -225,10 +250,13 @@ def chat():
         )
 
 
-# start chat with a new user (login required)
 @app.route("/chat/start", methods=["POST"])
 @login_required
 def chat_start():
+    """
+    Handle starting a chat with a new user.
+    """
+
     # get recipient username
     username = request.form.get("username").strip()
 
