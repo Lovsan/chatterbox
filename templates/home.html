@@ -2,5 +2,30 @@
 {% block title %}Home{% endblock %}
 
 {% block main %}
-This is the home page. Work in progress...
+<!-- Jumbotron for welcome message and call to action buttons -->
+<div class="jumbotron text-center">
+    <h1 class="display-4">Welcome to Chatterbox!</h1>
+    <p class="lead">A simple real-time chat application built with Python, SQL, and JavaScript.</p>
+    <hr class="my-4">
+    <p>Get started by registering an account or logging in if you already have one.</p>
+    <!-- Buttons for registration and login -->
+    <a class="btn btn-primary btn-lg mx-2" href="{{ url_for('register') }}" role="button">Register</a>
+    <a class="btn btn-secondary btn-lg mx-2" href="{{ url_for('login') }}" role="button">Login</a>
+</div>
+
+<!-- Feature highlights section -->
+<div class="row mt-5">
+    <div class="col-md-4">
+        <h3>Real-Time Messaging</h3>
+        <p>Chat with other users in real-time. Messages are saved to the database and displayed instantly.</p>
+    </div>
+    <div class="col-md-4">
+        <h3>User Authentication</h3>
+        <p>Securely register and log in to your account. Your credentials are safely stored using industry-standard encryption.</p>
+    </div>
+    <div class="col-md-4">
+        <h3>Responsive Design</h3>
+        <p>Enjoy a clean and responsive interface, ensuring a seamless experience on any device.</p>
+    </div>
+</div>
 {% endblock %}
