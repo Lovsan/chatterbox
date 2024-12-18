@@ -5,8 +5,10 @@ document.addEventListener("DOMContentLoaded", function() {
     // Initialize SocketIO
     const socket = io();
 
-    // Handle message form submission
+    // Get the message form element
     const messageForm = document.getElementById("message-form");
+
+    // Check if the message form exists
     if (messageForm) {
         messageForm.addEventListener("submit", function(event) {
             // Prevent the default form submission behavior
