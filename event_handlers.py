@@ -28,6 +28,11 @@ def register_event_handlers(socketio, app):
         # Log the message event
         # app.logger.info(f"{data["username"]} has sent message to {data["recipient"]}: {data["message"]}")
         
+        # Check if recipient is provided
+        if "recipient" not in data or not data["recipient"]:
+            emit("error", {"error": "Recipient is required!"})
+            return
+
         # Find the recipient user by username
         recipient = User.query.filter_by(username=data["recipient"]).first()
         
@@ -38,6 +43,11 @@ def register_event_handlers(socketio, app):
         
         # Strip message text
         message_text = data["message"].strip()
+
+        # Check if the message is empty
+        if not message_text:
+            emit("error", {"error": "Message cannot be empty!"})
+            return
         
         # Check message length
         if len(message_text) > 500:
