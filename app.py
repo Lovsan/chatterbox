@@ -56,6 +56,7 @@ def author():
 def login():
     """
     Handle user login
+    Logout required.
     """
 
     # IF POST: check username and password
@@ -100,6 +101,7 @@ def logout():
 def register():
     """
     Handle user registration
+    Logout required.
     """
 
     # IF POST: create a new user
@@ -153,6 +155,7 @@ def register():
 def chat():
     """
     Renders the chat page, handles message retrieval and sending.
+    LOGIN REQUIRED.
     GET:
         - Retrieves recent users the current user has chatted with.
         - Retrieves messages between the current user and a selected recipient.
@@ -255,6 +258,7 @@ def chat():
 def chat_start():
     """
     Handle starting a chat with a new user.
+    Login required.
     """
 
     # get recipient username
