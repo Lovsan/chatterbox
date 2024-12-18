@@ -150,17 +150,17 @@ def register():
     return render_template("register.html")
 
 
-@app.route("/chat", methods=["GET", "POST"])
+@app.route("/chat")
 @login_required
 def chat():
     """
-    Renders the chat page, handles message retrieval and sending.
+    Renders the chat page and handles message retrieval.
     LOGIN REQUIRED.
     GET:
         - Retrieves recent users the current user has chatted with.
         - Retrieves messages between the current user and a selected recipient.
-    POST:
-        - Sends a new message to a selected recipient.
+    Note:
+        - New messages are now handled by the websocket.
     Returns:
         - Renders the chat page with recent users, messages, and recipient details.
     """
@@ -206,42 +206,12 @@ def chat():
             ((Message.user_id == session["user_id"]) & (Message.recipient_id == recipient_id)) |
             ((Message.user_id == recipient_id) & (Message.recipient_id == session["user_id"]))
         ).order_by(Message.timestamp.asc()).all()
-    
-    # IF POST: add message to database
-    if request.method=="POST":
-        recipient_id = request.form.get("recipient_id", type=int)
-        message_text = request.form.get("message")
 
-        # check if recipient and message are provided
-        if not recipient_id or not message_text:
-            flash("Recipient and message are required!")
-            return redirect(url_for("chat", recipient_id=recipient_id))
-        
-        # check if recipient exists
-        recipient = User.query.get(recipient_id)
-        if not recipient:
-            flash("Recipient not found!")
-            return redirect(url_for("chat"))
 
-        # strip message text
-        message_text = message_text.strip()
-        
-        # check message length
-        if len(message_text) > 500:
-            flash("Message must be at most 500 characters long!")
-            return redirect(url_for("chat", recipient_id=recipient_id))
-        
-        # create a new message and add it to database
-        new_message = Message(
-            user_id=session["user_id"],
-            recipient_id=recipient_id,
-            text=message_text
-        )
-        db.session.add(new_message)
-        db.session.commit()
+    # NEW MESSAGES ARE NOW HANDLED BY THE WEBSOCKET
+    # NEW MESSAGES ARE NOW HANDLED BY THE WEBSOCKET
+    # NEW MESSAGES ARE NOW HANDLED BY THE WEBSOCKET
 
-        # flash message and redirect to chat
-        return redirect(url_for("chat", recipient_id=recipient_id))
 
     # return chat page
     return render_template(
