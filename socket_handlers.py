@@ -1,14 +1,8 @@
-# NOT USED RIGHT NOW, BUT WILL BE USED IN THE FUTURE
-# NOT USED RIGHT NOW, BUT WILL BE USED IN THE FUTURE
-# NOT USED RIGHT NOW, BUT WILL BE USED IN THE FUTURE
 # Description: This file contains the code for the socket handlers.
-
 
 # import
 from flask_socketio import emit, join_room, leave_room
 from flask import session
-from helpers import login_required
-from flask_session import Session
 from models import User, db, Message
 
 
@@ -17,20 +11,30 @@ def register_socket_handlers(socketio):
 
     # join room
     @socketio.on("join")
-    @login_required
     def handle_join(data):
-        join_room(session["user_id"])
+        user_id = session.get("user_id")
+        if user_id:
+            join_room(user_id)
+        else:
+            emit("error", {"message": "User not authenticated!"})
 
     # leave room
     @socketio.on("leave")
-    @login_required
     def handle_leave(data):
-        leave_room(session["user_id"])
-    
+        user_id = session.get("user_id")
+        if user_id:
+            leave_room(user_id)
+        else:
+            emit("error", {"message": "User not authenticated!"})
+
     # send message
     @socketio.on("send_message")
-    @login_required
     def handle_send_message(data):
+
+        # check if user is authenticated
+        user_id = session.get("user_id")
+        if not user_id:
+            return emit("error", {"message": "User not authenticated!"})
 
         # get data
         recipient_id = data.get("recipient_id")
@@ -41,7 +45,7 @@ def register_socket_handlers(socketio):
             return emit("error", {"message": "Recipient and message are required!"})
         
         # check if recipient_id is not the same as user_id
-        if recipient_id == session["user_id"]:
+        if recipient_id == user_id:
             return emit("error", {"message": "You cannot send a message to yourself!"})
         
         # if recipient not found
@@ -58,7 +62,7 @@ def register_socket_handlers(socketio):
 
         # create a new message
         new_message = Message(
-            user_id=session["user_id"],
+            user_id=user_id,
             recipient_id=recipient_id,
             text=text
         )
@@ -76,5 +80,5 @@ def register_socket_handlers(socketio):
         }
 
         # send message to sender and recipient
-        emit("receive_message", message_data, room=session["user_id"])
+        emit("receive_message", message_data, room=user_id)
         emit("receive_message", message_data, room=recipient_id)
