@@ -6,7 +6,6 @@ from flask import session, flash, redirect, url_for
 from functools import wraps
 
 
-# login required
 def login_required(f):
     """
     Decorator function to require login.
@@ -21,8 +20,6 @@ def login_required(f):
     return decorated_function
 
 
-
-# logout required
 def logout_required(f):
     """
     Decorator function to require logOUT.
