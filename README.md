@@ -14,12 +14,12 @@ Chatterbox is a simple real-time chat application built using Python, Flask SQL,
 
 - **User Authentication**: Users can register, log in, and log out.
 - **Real-Time Messaging**: Chat functionality where messages are saved to a database and displayed in real-time.
-- **Bootstrap UI**: A responsive and clean interface styled using Bootstrap.
+- **Responsive Design**: A clean and adaptable user interface.
 - **Database**: SQL is used to store user credentials and chat messages.
 
 ## Technologies Used
 
-- **Backend**: Python 3, Flask, SQLAlchemy, Socket.IO
+- **Backend**: Python 3, Flask, SQLAlchemy, Socket.IO, JavaScript
 - **Frontend**: HTML, CSS, Bootstrap, JavaScript
 - **Database**: SQLite
 - **Environment**: Docker-based devcontainer for isolated development
