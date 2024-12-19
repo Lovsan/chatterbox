@@ -19,6 +19,14 @@
         <label class="form-label">Confirm Password</label>
         <input type="password" class="form-control" name="confirm-password">
     </div>
+    <!-- License -->
+    <div class="mb-3">
+        <input type="checkbox" class="form-check-input" name="license" required>
+        <label class="form-check-label" for="license">
+            I have read and agree to the terms of the <a href="https://github.com/FilipRokita/chatterbox/blob/main/LICENSE" target="_blank">license</a>.
+            <span class="text-danger">*</span>
+        </label>
+    </div>
     <button type="submit" class="btn btn-primary">Register</button>
 </form>
 {% endblock %}

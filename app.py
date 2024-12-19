@@ -106,8 +106,12 @@ def register():
 
     # IF POST: create a new user
     if request.method == "POST":
+
+        # get form data
         username = request.form.get("username")
         password = request.form.get("password")
+        confirm_password = request.form.get("confirm-password")
+        license = request.form.get("license")
 
         # check if username and password are provided
         if not username or not password:
@@ -125,9 +129,13 @@ def register():
             return redirect(url_for("register"))
 
         # check password confirmation
-        confirm_password = request.form.get("confirm-password")
         if password != confirm_password:
             flash("Passwords do not match!")
+            return redirect(url_for("register"))
+        
+        # check license agreement
+        if not license:
+            flash("You must agree to the license agreement!")
             return redirect(url_for("register"))
         
         # check if username already exists
