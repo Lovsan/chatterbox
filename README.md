@@ -108,7 +108,7 @@ chatterbox/
 - **React Front-End (Optional)**: Migrate the front-end to React for a more dynamic and modern user experience.
 - **Deployment**: Host the application on a VPS using Docker and Nginx.
 
-# Known Bugs
+## Known Bugs
 - The users' panel does not update in real time when a message is received from someone other than the current chat participant.
 
 ## License
