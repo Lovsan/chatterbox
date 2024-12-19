@@ -42,7 +42,7 @@ document.addEventListener("DOMContentLoaded", function() {
         if ((data.recipient === currentUsername && data.username === messageForm.dataset.recipient) ||
             (data.username === currentUsername && data.recipient === messageForm.dataset.recipient)) {
             // Use the appendMessage function to create and append the message element
-            appendMessage(data.username, data.message, currentUsername);
+            appendMessage(data.username, currentUsername, data.message);
         }
     });
 });

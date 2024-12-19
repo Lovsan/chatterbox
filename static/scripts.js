@@ -13,10 +13,10 @@ document.addEventListener("DOMContentLoaded", function() {
 /**
  * Function to create and append a message element to the chat box
  * @param {string} username - The username of the sender
- * @param {string} message - The message text
  * @param {string} currentUsername - The current user's username
+ * @param {string} message - The message text
  */
-function appendMessage(username, message, currentUsername) {
+function appendMessage(username, currentUsername, message) {
     // Get the chat box element
     const chatBox = document.getElementById("chat-box");
 
