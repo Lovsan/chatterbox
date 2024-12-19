@@ -1,7 +1,7 @@
 # Chatterbox
 
 <div align="center">
-   <img src="misc/mockup.png" width="600">
+   <img src="misc/mockup.png" width="500">
 </div>
 
 ---
