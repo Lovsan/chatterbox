@@ -118,7 +118,7 @@ chatterbox/
 
 ## 🚀 Future Enhancements
 
-- **Easier Deployment**: Simplify deployment processes using Docker.
+- **Easier Deployment**: Simplify deployment process using Docker.
 - **User Profiles**: Add user profile pages and the ability to update account details.
 - **Enhanced UI**: Improve the design and usability of the chat interface.
 - **React Front-End (Optional)**: Migrate the front-end to React for a more dynamic and modern user experience.
