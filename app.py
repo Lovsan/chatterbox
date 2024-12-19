@@ -254,6 +254,9 @@ def chat_start():
     return redirect(url_for("chat", recipient_id=recipient.id))
 
 
+# verify async mode
+print(f"SocketIO async mode: {socketio.async_mode}")
+
 # run the app
 if __name__ == "__main__":
     socketio.run(app, debug=True)
