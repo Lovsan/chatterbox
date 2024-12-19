@@ -9,3 +9,29 @@ document.addEventListener("DOMContentLoaded", function() {
         chatBox.scrollTop = chatBox.scrollHeight;
     }
 });
+
+/**
+ * Function to create and append a message element to the chat box
+ * @param {string} username - The username of the sender
+ * @param {string} message - The message text
+ * @param {string} currentUsername - The current user's username
+ */
+function appendMessage(username, message, currentUsername) {
+    // Get the chat box element
+    const chatBox = document.getElementById("chat-box");
+
+    // Create a new message element
+    const messageElement = document.createElement("div");
+    messageElement.classList.add("mb-2");
+    messageElement.innerHTML = `
+        <strong class="${username === currentUsername ? 'text-primary' : 'text-secondary'}">
+            ${username === currentUsername ? 'You' : username}: 
+        </strong>
+        ${message}
+        <small class="text-muted">${new Date().toLocaleString()}</small>
+    `;
+    
+    // Append the message to the chat box and scroll to the bottom
+    chatBox.appendChild(messageElement);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}

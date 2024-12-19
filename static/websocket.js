@@ -37,27 +37,12 @@ document.addEventListener("DOMContentLoaded", function() {
     socket.on("receive_message", function(data) {
         // Get the current username from the form's data attributes
         const currentUsername = messageForm.dataset.username;
-        
-        // Get the chat box element
-        const chatBox = document.getElementById("chat-box");
 
         // Check if the received message is for the current chat
         if ((data.recipient === currentUsername && data.username === messageForm.dataset.recipient) ||
             (data.username === currentUsername && data.recipient === messageForm.dataset.recipient)) {
-            // Create a new message element
-            const messageElement = document.createElement("div");
-            messageElement.classList.add("mb-2");
-            messageElement.innerHTML = `
-                <strong class="${data.username === currentUsername ? 'text-primary' : 'text-secondary'}">
-                    ${data.username === currentUsername ? 'You' : data.username}: 
-                </strong>
-                ${data.message}
-                <small class="text-muted">${new Date().toLocaleString()}</small>
-            `;
-            
-            // Append the message to the chat box and scroll to the bottom
-            chatBox.appendChild(messageElement);
-            chatBox.scrollTop = chatBox.scrollHeight;
+            // Use the appendMessage function to create and append the message element
+            appendMessage(data.username, data.message, currentUsername);
         }
     });
 });
