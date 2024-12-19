@@ -8,23 +8,38 @@
 
 **⚠️⚠️⚠️ CHATTERBOX IS CURRENTLY UNDER ACTIVE DEVELOPMENT, AND THE DOCUMENTATION MAY NOT BE FULLY UP-TO-DATE. LAST DOCUMENTATION UPDATE: 19.12.2024 ⚠️⚠️⚠️**
 
-Chatterbox is a simple real-time chat application built using Python, Flask SQL, JavaScript, HTML, and CSS (with Bootstrap). It allows users to register, log in, and send messages to a chatroom.
+Chatterbox is a lightweight, real-time chat application built with robust technologies. It enables users to register, log in, and exchange messages seamlessly. The app is designed to be user-friendly, secure, and efficient, making it a great solution for quick and reliable communication.
 
-## Features
+## 📚 Table of Contents
+1. [🌟 Features](#-features)  
+2. [🛠️ Technologies Used](#️-technologies-used)  
+3. [📦 Installation](#-installation)  
+   - [Prerequisites](#prerequisites)  
+   - [Local Setup](#local-setup)  
+   - [Setup Using Docker and Devcontainer (for development)](#setup-using-docker-and-devcontainer-for-development)  
+4. [🧑‍💻 Usage](#-usage)  
+5. [📂 File Structure](#-file-structure)  
+6. [🚀 Future Enhancements](#-future-enhancements)  
+7. [🐞 Known Bugs](#-known-bugs)  
+8. [📜 License](#-license)  
+9. [🙏 Acknowledgments](#-acknowledgments)  
+10. [👤 Author](#-author)  
 
-- **User Authentication**: Users can register, log in, and log out.
-- **Real-Time Messaging**: Chat functionality where messages are saved to a database and displayed in real-time.
-- **Responsive Design**: A clean and adaptable user interface.
-- **Database**: SQL is used to store user credentials and chat messages.
+## 🌟 Features
 
-## Technologies Used
+- 🔒 **User Authentication**: Secure registration, login, and logout functionality.
+- ⚡ **Real-Time Messaging**: Chat seamlessly with real-time updates.
+- 📱 **Responsive Design**: Optimized for monitors of all sizes.
+- 🗂️ **Database**: Messages and user data are stored in a robust database.
 
-- **Backend**: Python 3, Flask, SQLAlchemy, Socket.IO, JavaScript
-- **Frontend**: HTML, CSS, Bootstrap, JavaScript
+## 🛠️ Technologies Used
+
+- **Backend**: Python 3, Flask, SQLAlchemy, Socket.IO
+- **Frontend**: HTML, JavaScript, CSS, Bootstrap
 - **Database**: SQLite
 - **Environment**: Docker-based devcontainer for isolated development
 
-## Installation
+## 📦 Installation
 
 ### Prerequisites
 
@@ -56,14 +71,14 @@ Chatterbox is a simple real-time chat application built using Python, Flask SQL,
 3. The enviroment will be set up automatically based on the `devcontainer.json`.
 4. Run `python3 init_db.py`, and then `python3 app.py`.
 
-## Usage
+## 🧑‍💻 Usage
 
 1. Open the application in your browser.
 2. Register a new user account.
 3. Log in using your credentials.
-4. Navigate to the chatroom and start chatting!
+4. Start chatting!
 
-## File Structure
+## 📂 File Structure
 
 ```
 chatterbox/
@@ -101,25 +116,25 @@ chatterbox/
 └── .devcontainer/        # Dev container configuration
 ```
 
-## Future Enhancements
+## 🚀 Future Enhancements
 
+- **Easier Deployment**: Simplify deployment processes using Docker.
 - **User Profiles**: Add user profile pages and the ability to update account details.
 - **Enhanced UI**: Improve the design and usability of the chat interface.
 - **React Front-End (Optional)**: Migrate the front-end to React for a more dynamic and modern user experience.
-- **Deployment**: Host the application on a VPS using Docker and Nginx.
 
-## Known Bugs
+## 🐞 Known Bugs
 - The users panel (in "Chat" tab) does not update in real time when a message is received from someone other than the current chat participant.
 
-## License
+## 📜 License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
-## Acknowledgments
+## 🙏 Acknowledgments
 
 - Harvard's CS50x course for inspiration and foundational knowledge.
 - The Flask and Bootstrap communities for providing excellent documentation and tools.
 
-## Author
+## 👤 Author
 Filip Rokita  
 [www.filiprokita.com](https://www.filiprokita.com/)
