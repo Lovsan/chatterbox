@@ -21,18 +21,20 @@ function appendMessage(username, currentUsername, message) {
     // Get the chat box element
     const chatBox = document.getElementById("chat-box");
 
-    // Create a new message element
-    const messageElement = document.createElement("div");
-    messageElement.classList.add("mb-2");
-    messageElement.innerHTML = `
-        <strong class="${username === currentUsername ? 'text-primary' : 'text-secondary'}">
-            ${username === currentUsername ? 'You' : username}: 
-        </strong>
-        ${message}
-        <small class="text-muted">${new Date().toLocaleString()}</small>
-    `;
-    
-    // Append the message to the chat box and scroll to the bottom
-    chatBox.appendChild(messageElement);
-    chatBox.scrollTop = chatBox.scrollHeight;
+    if (chatBox) {
+        // Create a new message element
+        const messageElement = document.createElement("div");
+        messageElement.classList.add("mb-2");
+        messageElement.innerHTML = `
+            <strong class="${username === currentUsername ? 'text-primary' : 'text-secondary'}">
+                ${username === currentUsername ? 'You' : username}: 
+            </strong>
+            ${message}
+            <small class="text-muted">${new Date().toLocaleString()}</small>
+        `;
+        
+        // Append the message to the chat box and scroll to the bottom
+        chatBox.appendChild(messageElement);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
 }
