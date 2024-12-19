@@ -6,7 +6,7 @@
 
 ---
 
-**⚠️⚠️⚠️ CHATTERBOX IS CURRENTLY UNDER ACTIVE DEVELOPMENT, AND THE DOCUMENTATION MAY NOT BE FULLY UP-TO-DATE. LAST DOCUMENTATION UPDATE: 18.12.2024 ⚠️⚠️⚠️**
+**⚠️⚠️⚠️ CHATTERBOX IS CURRENTLY UNDER ACTIVE DEVELOPMENT, AND THE DOCUMENTATION MAY NOT BE FULLY UP-TO-DATE. LAST DOCUMENTATION UPDATE: 19.12.2024 ⚠️⚠️⚠️**
 
 Chatterbox is a simple real-time chat application built using Python, Flask SQL, JavaScript, HTML, and CSS (with Bootstrap). It allows users to register, log in, and send messages to a chatroom.
 
@@ -29,9 +29,9 @@ Chatterbox is a simple real-time chat application built using Python, Flask SQL,
 ### Prerequisites
 
 - Python 3.10+
-- Docker ()
+- Docker (optional; for Devcontainer)
 
-### Local setup (preferred, as the app is still in development)
+### Local setup
 
 1. **Install Dependencies**:
    ```bash
