@@ -109,7 +109,7 @@ chatterbox/
 - **Deployment**: Host the application on a VPS using Docker and Nginx.
 
 ## Known Bugs
-- The users' panel does not update in real time when a message is received from someone other than the current chat participant.
+- The users panel (in "Chat" tab) does not update in real time when a message is received from someone other than the current chat participant.
 
 ## License
 
