@@ -12,7 +12,13 @@
     word-wrap: break-word;
     overflow-wrap: break-word;
 }
+*/
 
+.no-underline {
+    text-decoration: none;
+}
+
+/*
 .username {
     font-weight: bold;
     white-space: nowrap;
