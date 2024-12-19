@@ -53,6 +53,9 @@ def register_event_handlers(socketio, app):
             emit("error", {"error": "Recipient is required!"})
             return
 
+        # Get message text
+        message_text = data["message"]
+
         # Check if the message is empty
         if not message_text:
             emit("error", {"error": "Message cannot be empty!"})
