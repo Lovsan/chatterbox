@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 });
 
+
 /**
  * Function to create and append a message element to the chat box
  * @param {string} username - The username of the sender
