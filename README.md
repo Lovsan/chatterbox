@@ -29,17 +29,7 @@ Chatterbox is a simple real-time chat application built using Python, Flask SQL,
 ### Prerequisites
 
 - Python 3.10+
-- Docker (optional)
-
-### Setup using Gunicorn (eg. using Render)
-1. **Build Command**
-   ```bash
-   pip3 install -r requirements.txt && python3 init_db.py -f
-   ```
-2. **Start Command**
-   ```bash
-   gunicorn app:app
-   ```
+- Docker ()
 
 ### Local setup (preferred, as the app is still in development)
 
