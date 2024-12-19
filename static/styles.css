@@ -1,3 +1,13 @@
+html, body {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+main {
+    flex: 1;
+}
+
 .access-form {
     max-width: 400px;
 }
