@@ -31,7 +31,7 @@ function appendMessage(username, currentUsername, message) {
             </strong>
             ${message}
         `;
-        messageElement.setAttribute("title", `${new Date().toLocaleString()}`)
+        messageElement.setAttribute("title", `${new Date().toLocaleString("pl-PL")}`)
         
         // Append the message to the chat box and scroll to the bottom
         chatBox.appendChild(messageElement);
