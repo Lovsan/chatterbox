@@ -74,13 +74,14 @@
         <!-- Flash messages -->
         {% with messages = get_flashed_messages() %}
             {% if messages %}
-                <div class="container my-5">
-                    {% for message in messages %}
-                        <div class="alert alert-primary" role="alert">
-                            {{ message }}
-                        </div>
-                    {% endfor %}
+            <div class="container my-5">
+                {% for message in messages %}
+                <div class="alert alert-primary alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
+                {% endfor %}
+            </div>
             {% endif %}
         {% endwith %}
 
