@@ -30,8 +30,8 @@ function appendMessage(username, currentUsername, message) {
                 ${username === currentUsername ? 'You' : username}: 
             </strong>
             ${message}
-            <small class="text-muted">${new Date().toLocaleString()}</small>
         `;
+        messageElement.setAttribute("title", `${new Date().toLocaleString()}`)
         
         // Append the message to the chat box and scroll to the bottom
         chatBox.appendChild(messageElement);

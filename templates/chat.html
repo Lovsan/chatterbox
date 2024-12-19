@@ -37,12 +37,11 @@
             <!-- Chat -->
             <div id="chat-box">
                 {% for message in messages %}
-                <div class="mb-2">
+                <div class="mb-2" title="{{ message.timestamp.strftime('%d.%m.%Y, %H:%M:%S') }}">
                     <strong class="{{ 'text-primary' if message.user_id == session['user_id'] else 'text-secondary' }}">
                         {{ 'You' if message.user_id == session['user_id'] else message.sender.username }}: 
                     </strong>
                     {{ message.text }}
-                    <small class="text-muted">{{ message.timestamp.strftime('%d.%m.%Y, %H:%M:%S') }}</small>
                     <!--
                     <span class="username me-2">{{ 'You' if message.user_id == session['user_id'] else message.sender.username }}: </span>
                     <span class="message-text">{{ message.text }}</span>
