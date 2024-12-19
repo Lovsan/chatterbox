@@ -1,12 +1,22 @@
 # Chatterbox
 
 <div align="center">
-   <img src="misc/mockup.png" width="500">
+   <img src="misc/banner/banner.png" width=500">
 </div>
 
 ---
 
-**⚠️⚠️⚠️ CHATTERBOX IS CURRENTLY UNDER ACTIVE DEVELOPMENT, AND THE DOCUMENTATION MAY NOT BE FULLY UP-TO-DATE. LAST DOCUMENTATION UPDATE: 19.12.2024 ⚠️⚠️⚠️**
+<div align="center">
+   <b>⚠️⚠️⚠️ CHATTERBOX IS CURRENTLY UNDER ACTIVE DEVELOPMENT, AND THE DOCUMENTATION MAY NOT BE FULLY UP-TO-DATE. LAST DOCUMENTATION UPDATE: 19.12.2024 ⚠️⚠️⚠️</b>
+</div>
+
+---
+
+<div align="center">
+   <img src="misc/mockup.png" width="500">
+</div>
+
+---
 
 Chatterbox is a lightweight, real-time chat application built with robust technologies. It enables users to register, log in, and exchange messages seamlessly. The app is designed to be user-friendly, secure, and efficient, making it a great solution for quick and reliable communication.
 
