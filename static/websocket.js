@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Check if the message form exists
     if (messageForm) {
+        // Add an event listener for the form submission
         messageForm.addEventListener("submit", function(event) {
             // Prevent the default form submission behavior
             event.preventDefault();
