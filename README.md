@@ -61,20 +61,12 @@ Built using **modern technologies**, Chatterbox delivers **stable performance** 
 
 ### Docker Setup (Recommended)
 
-1. **First Run (Setup)**:
-   ```bash
-   docker compose up -d --build
-   docker compose exec app python init_db.py -f
-   ```
-   - `--build` ensures that the Docker image is rebuilt.
-   - `init_db.py` initializes the database.
-
-2. **Normal Run**:
-   ```bash
-   docker compose up -d
-   ```
-   The application will be accessible at [http://0.0.0.0:8081](http://0.0.0.0:8081).  
-   To stop the application, run `docker compose down`.
+Just run the application using:
+```bash
+docker compose up -d
+```
+The application will be accessible at [http://0.0.0.0:8081](http://0.0.0.0:8081).  
+To stop the application, run `docker compose down`.
 
 
 ### Local Setup (Without Docker)
