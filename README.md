@@ -7,7 +7,7 @@
 ---
 
 <div align="center">
-   <b>⚠️⚠️⚠️ CHATTERBOX IS CURRENTLY UNDER ACTIVE DEVELOPMENT, AND THE DOCUMENTATION MAY NOT BE FULLY UP-TO-DATE. LAST DOCUMENTATION UPDATE: 19.12.2024 ⚠️⚠️⚠️</b>
+   <b>⚠️⚠️⚠️ CHATTERBOX IS CURRENTLY UNDER ACTIVE DEVELOPMENT, AND THE DOCUMENTATION MAY NOT BE FULLY UP-TO-DATE. LAST DOCUMENTATION UPDATE: 20.12.2024 ⚠️⚠️⚠️</b>
 </div>
 
 ---
@@ -21,19 +21,20 @@
 Chatterbox is a lightweight, real-time chat application built with robust technologies. It enables users to register, log in, and exchange messages seamlessly. The app is designed to be user-friendly, secure, and efficient, making it a great solution for quick and reliable communication.
 
 ## 📚 Table of Contents
-1. [🌟 Features](#-features)  
-2. [🛠️ Technologies Used](#️-technologies-used)  
-3. [📦 Installation](#-installation)  
-   - [Prerequisites](#prerequisites)  
-   - [Local Setup](#local-setup)  
-   - [Setup Using Docker and Devcontainer (for development)](#setup-using-docker-and-devcontainer-for-development)  
-4. [🧑‍💻 Usage](#-usage)  
-5. [📂 File Structure](#-file-structure)  
-6. [🚀 Future Enhancements](#-future-enhancements)  
-7. [🐞 Known Bugs](#-known-bugs)  
-8. [📜 License](#-license)  
-9. [🙏 Acknowledgments](#-acknowledgments)  
-10. [👤 Author](#-author)  
+1. [🌟 Features](#-features)
+2. [🛠️ Technologies Used](#️-technologies-used)
+3. [📦 Installation](#-installation)
+   - [Prerequisites](#prerequisites)
+   - [Docker Setup (Recommended)](#docker-setup-recommended)
+   - [Local Setup (Without Docker)](#local-setup-without-docker)
+   - [Setup Using Docker and Devcontainer (For Development)](#setup-using-docker-and-devcontainer-for-development)
+4. [🧑‍💻 Usage](#-usage)
+5. [📂 File Structure](#-file-structure)
+6. [🚀 Future Enhancements](#-future-enhancements)
+7. [🐞 Known Bugs](#-known-bugs)
+8. [📜 License](#-license)
+9. [🙏 Acknowledgments](#-acknowledgments)
+10. [👤 Author](#-author)
 
 ## 🌟 Features
 
@@ -47,23 +48,41 @@ Chatterbox is a lightweight, real-time chat application built with robust techno
 - **Backend**: Python 3, Flask, SQLAlchemy, Socket.IO, Jinja2
 - **Frontend**: HTML, JavaScript, CSS, Bootstrap
 - **Database**: SQLite
-- **Environment**: Docker-based devcontainer for isolated development
+- **Environment**: Docker
 
 ## 📦 Installation
 
 ### Prerequisites
 
 - Python 3.10+
-- Docker (optional; for Devcontainer)
+- Docker
 
-### Local setup
+### Docker Setup (Recommended)
+
+1. **First Run (Setup)**:
+   ```bash
+   docker compose up --build
+   docker compose exec app python3 init_db.py -f
+   ```
+   - `--build` ensures that the Docker image is rebuilt if there are any changes.
+   - `init_db.py` initializes the database.
+
+2. **Normal Run**:
+   ```bash
+   docker compose up
+   ```
+   The application will be accessible at [0.0.0.0:8081](0.0.0.0:8081).  
+   To stop the application, run `docker compose down`.
+
+
+### Local Setup (Without Docker)
 
 1. **Install Dependencies**:
    ```bash
    pip3 install -r requirements.txt
    ```
 
-2. **Initialize the Database**:
+2. **Initialize the Database (First Run Only)**:
    ```bash
    python3 init_db.py
    ```
@@ -72,14 +91,17 @@ Chatterbox is a lightweight, real-time chat application built with robust techno
    ```bash
    python3 app.py
    ```
-   The application will be accessible at [http://127.0.0.1:5000](http://127.0.0.1:5000).
+   The application will be accessible at [http://127.0.0.1:5000](http://127.0.0.1:5000).  
+   To stop the application, press `Ctrl + C` in the terminal where the application is running.
 
-### Setup Using Docker and Devcontainer (for development)
+### Setup Using Docker and Devcontainer (For Development)
 
 1. Open the project in a development environment that supports Devcontainers (e.g., Visual Studio Code).
 2. Follow prompts to build and open the container.
 3. The enviroment will be set up automatically based on the `devcontainer.json`.
 4. Run `python3 init_db.py`, and then `python3 app.py`.
+
+To stop the application, press `Ctrl + C` in the terminal running the app.
 
 ## 🧑‍💻 Usage
 
@@ -128,7 +150,6 @@ chatterbox/
 
 ## 🚀 Future Enhancements
 
-- **Easier Deployment**: Simplify deployment process using Docker.
 - **User Profiles**: Add user profile pages and the ability to update account details.
 - **Enhanced UI**: Improve the design and usability of the chat interface.
 - **React Front-End (Optional)**: Migrate the front-end to React for a more dynamic and modern user experience.
