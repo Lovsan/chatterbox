@@ -27,7 +27,7 @@ Chatterbox is a lightweight, real-time chat application built with robust techno
    - [Prerequisites](#prerequisites)
    - [Docker Setup (Recommended)](#docker-setup-recommended)
    - [Local Setup (Without Docker)](#local-setup-without-docker)
-   - [Devcontainer Setup (For Development)](#devcontainer-setup-for-development))
+   - [Devcontainer Setup (For Development)](#devcontainer-setup-for-development)
 4. [🧑‍💻 Usage](#-usage)
 5. [📂 File Structure](#-file-structure)
 6. [🚀 Future Enhancements](#-future-enhancements)
