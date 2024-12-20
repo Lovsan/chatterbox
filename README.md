@@ -77,7 +77,7 @@ Chatterbox is a lightweight, real-time chat application built with robust techno
 
 ### Local Setup (Without Docker)
 
-1. **Install Dependencies**:
+1. **Install Dependencies (First Run Only)**:
    ```bash
    pip3 install -r requirements.txt
    ```
