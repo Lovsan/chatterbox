@@ -20,6 +20,8 @@
 
 Chatterbox is a lightweight, real-time chat application built with robust technologies. It enables users to register, log in, and exchange messages seamlessly. The app is designed to be user-friendly, secure, and efficient, making it a great solution for quick and reliable communication.
 
+The application leverages modern frameworks and tools to ensure stable performance and real-time functionality. Its straightforward design focuses on delivering essential features without unnecessary complexity, making it easy to deploy, maintain, and use across various environments.
+
 ## 📚 Table of Contents
 1. [🌟 Features](#-features)
 2. [🛠️ Technologies Used](#️-technologies-used)
