@@ -92,7 +92,7 @@ Chatterbox is a lightweight, real-time chat application built with robust techno
    python3 app.py
    ```
    The application will be accessible at [http://127.0.0.1:5000](http://127.0.0.1:5000).  
-   To stop the application, press `Ctrl + C` in the terminal where the application is running.
+   To stop the application, press `Ctrl + C` in the terminal running the app.
 
 ### Setup Using Docker and Devcontainer (For Development)
 
