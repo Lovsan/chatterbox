@@ -20,7 +20,7 @@
 
 <div align="center">
    <h3>🌐 LIVE DEMO 🌐</h3>
-   <a href="https://chatterbox-70u8.onrender.com/"><b>➡️ Visit Chatterbox on Render ⬅️</b></a>  
+   <a href="https://chatterbox-70u8.onrender.com/"><b>➡️ Try Chatterbox on Render ⬅️</b></a></br>
    <i>(Note: This app is hosted on the free tier of Render, so it may load slowly or the link may become inactive over time.)</i>
 </div>
 
