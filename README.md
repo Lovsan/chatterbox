@@ -27,9 +27,9 @@ Built using **modern technologies**, Chatterbox delivers **stable performance** 
 2. [🛠️ Technologies Used](#️-technologies-used)
 3. [📦 Installation](#-installation)
    - [Prerequisites](#prerequisites)
-   - [Docker Setup (Recommended)](#docker-setup-recommended)
-   - [Local Setup (Without Docker)](#local-setup-without-docker)
-   - [Devcontainer Setup (For Development)](#devcontainer-setup-for-development)
+   - [Method 1: Docker Setup (Recommended)](#method-1-docker-setup-recommended)
+   - [Method 2: Local Setup (Without Docker)](#method-2-local-setup-without-docker)
+   - [Method 3: Devcontainer Setup (For Development)](#method-3-devcontainer-setup-for-development)
 4. [🧑‍💻 Usage](#-usage)
 5. [📂 File Structure](#-file-structure)
 6. [🚀 Future Enhancements](#-future-enhancements)
@@ -59,7 +59,7 @@ Built using **modern technologies**, Chatterbox delivers **stable performance** 
 - Python 3.10+
 - Docker
 
-### Docker Setup (Recommended)
+### Method 1: Docker Setup (Recommended)
 
 Just run the application using:
 ```bash
@@ -69,7 +69,7 @@ The application will be accessible at [http://0.0.0.0:8081](http://0.0.0.0:8081)
 To stop the application, run `docker compose down`.
 
 
-### Local Setup (Without Docker)
+### Method 2: Local Setup (Without Docker)
 
 1. **Install Dependencies (First Run Only)**:
    ```bash
@@ -88,7 +88,7 @@ To stop the application, run `docker compose down`.
    The application will be accessible at [http://127.0.0.1:5000](http://127.0.0.1:5000).  
    To stop the application, press `Ctrl + C` in the terminal running the app.
 
-### Devcontainer Setup (For Development)
+### Method 3: Devcontainer Setup (For Development)
 
 1. Open the project in a development environment that supports Devcontainers (e.g., Visual Studio Code).
 2. Follow prompts to build and open the container.
