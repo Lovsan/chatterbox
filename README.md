@@ -50,7 +50,7 @@ Built using **modern technologies**, Chatterbox delivers **stable performance** 
 - **Backend**: Python 3, Flask, SQLAlchemy, Socket.IO, Gunicorn, Eventlet, Jinja2
 - **Frontend**: HTML, JavaScript, CSS, Bootstrap
 - **Database**: SQLite
-- **Environment**: Docker, Devcontainers
+- **Environment**: Docker, Devcontainers, Shell
 
 ## 📦 Installation
 
