@@ -112,6 +112,7 @@ chatterbox/
 ├── app.py                  # Main application logic
 ├── docker-compose.yaml     # Defines container(s) setup
 ├── Dockerfile              # Builds the Docker image
+├── entrypoint.sh           # Script to initialize the app
 ├── event_handlers.py       # Event handling logic
 ├── helpers.py              # Helper functions and decorators
 ├── init_db.py              # Database initialization script
