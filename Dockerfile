@@ -13,5 +13,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Expose the port the app runs on
 EXPOSE 8081
 
+# Use an entrypoint script to initialize the app
+ENTRYPOINT ["bash", "./entrypoint.sh"]
+
 # Command to run the application
 CMD ["gunicorn", "-k", "eventlet", "-b", "0.0.0.0:8081", "app:app"]
