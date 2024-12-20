@@ -99,7 +99,7 @@ Chatterbox is a lightweight, real-time chat application built with robust techno
 1. Open the project in a development environment that supports Devcontainers (e.g., Visual Studio Code).
 2. Follow prompts to build and open the container.
 3. The enviroment will be set up automatically based on the `devcontainer.json`.
-4. Run `python3 init_db.py`, and then `python3 app.py`.
+4. Run `python3 init_db.py` (first run only), and then `python3 app.py`.
 
 To stop the application, press `Ctrl + C` in the terminal running the app.
 
