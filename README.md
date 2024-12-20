@@ -45,7 +45,7 @@ Chatterbox is a lightweight, real-time chat application built with robust techno
 
 ## 🛠️ Technologies Used
 
-- **Backend**: Python 3, Flask, SQLAlchemy, Socket.IO, Jinja2
+- **Backend**: Python 3, Flask, SQLAlchemy, Socket.IO, Eventlet, Jinja2
 - **Frontend**: HTML, JavaScript, CSS, Bootstrap
 - **Database**: SQLite
 - **Environment**: Docker
