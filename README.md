@@ -62,7 +62,7 @@ Chatterbox is a lightweight, real-time chat application built with robust techno
 1. **First Run (Setup)**:
    ```bash
    docker compose up -d --build
-   docker compose exec app python3 init_db.py -f
+   docker compose exec app python init_db.py -f
    ```
    - `--build` ensures that the Docker image is rebuilt.
    - `init_db.py` initializes the database.
