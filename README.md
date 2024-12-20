@@ -18,6 +18,14 @@
 
 ---
 
+<div align="center">
+   <h3>🌐 LIVE DEMO 🌐</h3>
+   <a href="https://chatterbox-70u8.onrender.com/"><b>➡️ Visit Chatterbox on Render ⬅️</b></a>  
+   <i>(Note: This app is hosted on the free tier of Render, so it may load slowly or the link may become inactive over time.)</i>
+</div>
+
+---
+
 **Chatterbox** is a **lightweight**, **real-time** chat application designed for **seamless** and **reliable** communication. Users can easily **register**, **log in**, and **exchange messages** in a **secure** and **efficient** environment.
 
 Built using **modern technologies**, Chatterbox delivers **stable performance** and **real-time functionality** while maintaining **simplicity** and **ease of use**. Its **intuitive design** focuses on **essential features**, ensuring **quick deployment** and **straightforward maintenance**, making it an ideal solution for various scenarios.
