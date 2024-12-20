@@ -27,7 +27,7 @@ Chatterbox is a lightweight, real-time chat application built with robust techno
    - [Prerequisites](#prerequisites)
    - [Docker Setup (Recommended)](#docker-setup-recommended)
    - [Local Setup (Without Docker)](#local-setup-without-docker)
-   - [Setup Using Docker and Devcontainer (For Development)](#setup-using-docker-and-devcontainer-for-development)
+   - [Devcontainer Setup (For Development)](#devcontainer-setup-for-development))
 4. [🧑‍💻 Usage](#-usage)
 5. [📂 File Structure](#-file-structure)
 6. [🚀 Future Enhancements](#-future-enhancements)
@@ -94,7 +94,7 @@ Chatterbox is a lightweight, real-time chat application built with robust techno
    The application will be accessible at [http://127.0.0.1:5000](http://127.0.0.1:5000).  
    To stop the application, press `Ctrl + C` in the terminal running the app.
 
-### Setup Using Docker and Devcontainer (For Development)
+### Devcontainer Setup (For Development)
 
 1. Open the project in a development environment that supports Devcontainers (e.g., Visual Studio Code).
 2. Follow prompts to build and open the container.
