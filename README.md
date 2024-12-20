@@ -11,7 +11,7 @@
       <img src="https://img.shields.io/badge/LIVE_DEMO-Click_Here-green?style=for-the-badge">
    </a>
    <br>
-   <i>(Note: Hosted on Render's free tier, so it may load slowly or become inactive over time.)</i>
+   <i>(Note: Hosted on Render's free tier, so it may load slowly at first or become inactive over time.)</i>
 </div>
 
 ---
