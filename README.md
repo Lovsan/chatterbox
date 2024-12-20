@@ -8,7 +8,7 @@
 
 <div align="center">
    <a href="https://chatterbox-70u8.onrender.com/">
-      <img src="https://img.shields.io/badge/LIVE_DEMO-Click_Here-green">
+      <img src="https://img.shields.io/badge/LIVE_DEMO-Click_Here-green?style=for-the-badge">
    </a>
    <br>
    <i>(Note: This app is hosted on the free tier of Render, so it may load slowly or the link may become inactive over time.)</i>
