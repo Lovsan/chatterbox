@@ -1,5 +1,5 @@
 services:
-  chatterbox:
+  app:
     build: .
     ports:
       - "8081:8081"
