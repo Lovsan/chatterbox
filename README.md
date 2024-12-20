@@ -115,37 +115,40 @@ To stop the application, press `Ctrl + C` in the terminal running the app.
 ```
 chatterbox/
 │
-├── app.py                # Main application logic
-├── models.py             # Database models
-├── init_db.py            # Database initialization script
-├── requirements.txt      # Python dependencies
-├── helpers.py            # Helper functions and decorators
-├── event_handlers.py     # Event handling logic
-├── .gitignore            # Gitignore file
-├── README.md             # Project documentation
-├── LICENSE               # Project license
+├── app.py                  # Main application logic
+├── docker-compose.yaml     # Defines container(s) setup
+├── Dockerfile              # Builds the Docker image
+├── event_handlers.py       # Event handling logic
+├── helpers.py              # Helper functions and decorators
+├── init_db.py              # Database initialization script
+├── LICENSE                 # Project license
+├── models.py               # Database models
+├── README.md               # Project documentation
+├── requirements.txt        # Python dependencies
+├── .gitignore              # Gitignore file
 │
 ├── instance/
-│   └── chatterbox.db     # SQLite database file
+│   └── chatterbox.db       # SQLite database file
 │
-├── templates/            # HTML templates
-│   ├── layout.html       # Base layout template
-│   ├── home.html         # Homepage template
-│   ├── login.html        # Login page template
-│   ├── register.html     # Registration page template
-│   ├── chat.html         # Chat page template
-│   └── author.html       # Author information page
+├── misc/                   # Miscellaneous files
 │
-├── static/               # Static files
-│   ├── favicon.ico       # Favicon
-│   ├── logo.png          # Logo image
-│   ├── scripts.js        # JavaScript for the website
-│   ├── websocket.js      # WebSocket JavaScript
-│   └── styles.css        # CSS for styling
+├── static/                 # Static files
+│   ├── favicon.ico         # Favicon
+│   ├── logo.png            # Logo image
+│   ├── scripts.js          # JavaScript for the website
+│   ├── styles.css          # CSS for styling
+│   └── websocket.js        # WebSocket JavaScript
 │
-├── misc/                 # Miscellaneous files
+├── templates/              # HTML templates
+│   ├── author.html         # Author information page
+│   ├── chat.html           # Chat page template
+│   ├── home.html           # Homepage template
+│   ├── layout.html         # Base layout template
+│   ├── login.html          # Login page template
+│   └── register.html       # Registration page template
 │
-└── .devcontainer/        # Dev container configuration
+└── .devcontainer/
+    └── devcontainer.json   # Dev container configuration
 ```
 
 ## 🚀 Future Enhancements
