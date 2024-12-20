@@ -71,7 +71,7 @@ Chatterbox is a lightweight, real-time chat application built with robust techno
    ```bash
    docker compose up
    ```
-   The application will be accessible at [0.0.0.0:8081](0.0.0.0:8081).  
+   The application will be accessible at [http://0.0.0.0:8081](http://0.0.0.0:8081).  
    To stop the application, run `docker compose down`.
 
 
