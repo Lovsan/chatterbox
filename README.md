@@ -18,9 +18,9 @@
 
 ---
 
-**Chatterbox** is a **lightweight**, **real-time chat application** designed for **seamless** and **reliable communication**. Users can easily **register**, **log in**, and **exchange messages** in a **secure** and **efficient environment**.
+**Chatterbox** is a **lightweight**, **real-time** chat application designed for **seamless** and **reliable** communication. Users can easily **register**, **log in**, and **exchange messages** in a **secure** and **efficient** environment.
 
-Built using **modern technologies**, Chatterbox delivers **stable performance** and **real-time functionality** while maintaining **simplicity** and **ease of use**. Its **intuitive design** focuses on **essential features**, ensuring **quick deployment** and **straightforward maintenance**, making it an ideal solution for **personal** or **professional use**.
+Built using **modern technologies**, Chatterbox delivers **stable performance** and **real-time functionality** while maintaining **simplicity** and **ease of use**. Its **intuitive design** focuses on **essential features**, ensuring **quick deployment** and **straightforward maintenance**, making it an ideal solution for varoius scenarios.
 
 ## 📚 Table of Contents
 1. [🌟 Features](#-features)
