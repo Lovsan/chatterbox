@@ -7,7 +7,7 @@
 ---
 
 <div align="center">
-   <a href="https://chatterbox-70u8.onrender.com/">
+   <a href="https://chatterbox-70u8.onrender.com/" target="_blank">
       <img src="https://img.shields.io/badge/LIVE_DEMO-Click_Here-green?style=for-the-badge">
    </a>
    <br>
