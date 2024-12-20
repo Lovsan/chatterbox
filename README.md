@@ -79,17 +79,17 @@ Chatterbox is a lightweight, real-time chat application built with robust techno
 
 1. **Install Dependencies (First Run Only)**:
    ```bash
-   pip3 install -r requirements.txt
+   pip install -r requirements.txt
    ```
 
 2. **Initialize the Database (First Run Only)**:
    ```bash
-   python3 init_db.py
+   python init_db.py
    ```
 
 3. **Run the Application**:
    ```bash
-   python3 app.py
+   python app.py
    ```
    The application will be accessible at [http://127.0.0.1:5000](http://127.0.0.1:5000).  
    To stop the application, press `Ctrl + C` in the terminal running the app.
@@ -99,7 +99,7 @@ Chatterbox is a lightweight, real-time chat application built with robust techno
 1. Open the project in a development environment that supports Devcontainers (e.g., Visual Studio Code).
 2. Follow prompts to build and open the container.
 3. The enviroment will be set up automatically based on the `devcontainer.json`.
-4. Run `python3 init_db.py` (first run only), and then `python3 app.py`.
+4. Run `python init_db.py` (first run only), and then `python app.py`.
 
 To stop the application, press `Ctrl + C` in the terminal running the app.
 
