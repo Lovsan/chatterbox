@@ -155,8 +155,8 @@ chatterbox/
 ## 🚀 Future Enhancements
 
 - **User Profiles**: Add user profile pages and the ability to update account details.
-- **Mobile Optimization**: Ensure the chat interface is responsive and works seamlessly on mobile devices.
 - **Media Sharing**: Add support for files, images, and videos in chats.
+- **Mobile Optimization**: Ensure the chat interface is responsive and works seamlessly on mobile devices.
 - **Enhanced UI**: Improve the design and usability of the chat interface.
 - **React Front-End (Optional)**: Migrate the front-end to React for a more dynamic and modern user experience.
 
