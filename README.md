@@ -11,7 +11,7 @@
       <img src="https://img.shields.io/badge/LIVE_DEMO-Click_Here-green?style=for-the-badge">
    </a>
    <br>
-   <i>(Note: Hosted on Render's free tier, so it may load slowly at first or become inactive over time.)</i>
+   <i>Note: Hosted on Render's free tier, so it may load slowly at first or become inactive over time.</i>
 </div>
 
 ---
@@ -25,6 +25,8 @@
 **Chatterbox** is a **lightweight**, **real-time** chat application designed for **seamless** and **reliable** communication. Users can easily **register**, **log in**, and **exchange messages** in a **secure** and **efficient** environment.
 
 Built using **modern technologies**, Chatterbox delivers **stable performance** and **real-time functionality** while maintaining **simplicity** and **ease of use**. Its **intuitive design** focuses on **essential features**, ensuring **quick deployment** and **straightforward maintenance**, making it an ideal solution for various scenarios.
+
+*Note: Chatterbox is a personal hobby project developed in spare time and currently in its early stages. This is a preliminary version intended for learning and experimentation, with many features still under development.*
 
 ---
 
