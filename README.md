@@ -26,7 +26,7 @@
 
 Built using **modern technologies**, Chatterbox delivers **stable performance** and **real-time functionality** while maintaining **simplicity** and **ease of use**. Its **intuitive design** focuses on **essential features**, ensuring **quick deployment** and **straightforward maintenance**, making it an ideal solution for various scenarios.
 
-*(Note: Chatterbox is a personal hobby project developed in spare time and currently in its early stages. This is a preliminary version intended for learning and experimentation, with many features still under development.)*
+*(Note: ChatterBox is a personal hobby project developed in spare time. It is currently in its early stages, serving as a preliminary version designed for learning and experimentation, with many features still under development.)*
 
 ---
 
