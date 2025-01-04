@@ -36,6 +36,10 @@ function refreshUserList() {
                 const ulElement = document.createElement("ul");
                 ulElement.classList.add("list-group");
 
+                // Get the recipient_id from the URL query parameters
+                const params = new URLSearchParams(window.location.search);
+                const recipientId = params.get("recipient_id");
+
                 // Populate the user list with the fetched data
                 data.users.forEach(user => {
                     const liElement = document.createElement("li");
@@ -46,6 +50,11 @@ function refreshUserList() {
                     aElement.classList.add("text-decoration-none");
                     aElement.textContent = user.username;
 
+                    // Bold the username of the current recipient
+                    if (user.id == recipientId) {
+                        aElement.style.fontWeight = "bold";
+                    }
+                    
                     liElement.appendChild(aElement);
                     ulElement.appendChild(liElement);
                 });
