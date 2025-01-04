@@ -43,6 +43,6 @@ main {
 }
 
 #user-list {
-    height: 70vh;
+    height: 55vh;
     overflow-y: auto;
 }
