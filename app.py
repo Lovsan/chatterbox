@@ -2,7 +2,7 @@
 
 
 # import
-from flask import Flask, render_template, request, flash, redirect, session, url_for
+from flask import Flask, render_template, request, flash, redirect, session, url_for, jsonify
 from flask_session import Session
 from flask_socketio import SocketIO
 from models import db, User, Message
@@ -165,44 +165,13 @@ def chat():
     Renders the chat page and handles message retrieval.
     LOGIN REQUIRED.
     GET:
-        - Retrieves recent users the current user has chatted with.
         - Retrieves messages between the current user and a selected recipient.
     Note:
         - New messages are now handled by the websocket.
     Returns:
-        - Renders the chat page with recent users, messages, and recipient details.
+        - Renders the chat page with messages and recipient details.
     """
 
-    # GET RECENT USERS
-    #
-    # this did not work:
-    # recent_users = User.query.join(
-    #    Message, (Message.user_id == session["user_id"]) | (Message.recipient_id == session["user_id"])
-    #    ).filter(User.id != session["user_id"]).distinct().all()
-    #
-    # this kinda works:
-    # recent_users_ids = db.session.query(Message.user_id).filter(
-    #     Message.recipient_id == session["user_id"]
-    # ).union(
-    #     db.session.query(Message.recipient_id).filter(Message.user_id == session["user_id"])
-    # ).distinct()
-    # recent_users = User.query.filter(User.id.in_(recent_users_ids)).all()
-    #
-    # this fully works:
-    recent_users = db.session.query(
-        User, func.max(Message.timestamp).label("last_message_time")
-    ).join(
-        Message, (Message.user_id == User.id) | (Message.recipient_id == User.id)
-    ).filter(
-        (Message.user_id == session["user_id"]) | (Message.recipient_id == session["user_id"])
-    ).filter(
-        User.id != session["user_id"]
-    ).group_by(
-        User.id
-    ).order_by(
-        func.max(Message.timestamp).desc()
-    ).all()
-    
     # get recipient
     recipient_id = request.args.get("recipient_id", type=int)
     recipient = User.query.get(recipient_id) if recipient_id else None
@@ -224,7 +193,6 @@ def chat():
     # return chat page
     return render_template(
         "chat.html",
-        recent_users=recent_users,
         messages=messages,
         recipient=recipient,
         recipient_id=recipient_id
@@ -260,6 +228,34 @@ def chat_start():
     
     # redirect to chat with recipient
     return redirect(url_for("chat", recipient_id=recipient.id))
+
+
+@app.route("/chat/user-list")
+@login_required
+def user_list():
+    """
+    Endpoint to return the list of users the current user has chatted with.
+    """
+    # Query to get recent users the current user has chatted with, along with the last message timestamp
+    recent_users = db.session.query(
+        User, func.max(Message.timestamp).label("last_message_time")
+    ).join(
+        Message, (Message.user_id == User.id) | (Message.recipient_id == User.id)
+    ).filter(
+        (Message.user_id == session["user_id"]) | (Message.recipient_id == session["user_id"])
+    ).filter(
+        User.id != session["user_id"]
+    ).group_by(
+        User.id
+    ).order_by(
+        func.max(Message.timestamp).desc()  # Order by the last message timestamp in descending order
+    ).all()
+
+    # Create a list of dictionaries containing user id and username
+    users = [{'id': user.id, 'username': user.username} for user, _ in recent_users]
+    
+    # Return the list of users as a JSON response
+    return jsonify({'users': users})
 
 
 # verify async mode

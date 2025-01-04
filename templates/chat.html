@@ -6,27 +6,21 @@
     <div class="row">
 
         <!-- Left column (users)-->
-        <div id="user-list" class="col-3 border-end">
+        <div class="col-3 border-end">
             <h5>Users</h5>
-            <!-- List of users -->
-            <ul class="list-group">
-                {% for user, last_message_time in recent_users %}
-                    <li class="list-group-item">
-                        <a href="{{ url_for('chat', recipient_id=user.id) }}"
-                        class="text-decoration-none {{ 'active' if user.id == recipient_id }}">
-                            {{ user.username}}
-                        </a>
-                    </li>
-                {% endfor %}
-            </ul>
 
             <!-- Add new user -->
-            <form action="{{ url_for('chat_start') }}" method="post" class="mt-3">
+            <form action="{{ url_for('chat_start') }}" method="post" class="mt-3 mb-3">
                 <div class="input-group">
                     <input type="text" name="username" class="form-control" placeholder="Enter username...">
                     <button type="submit" class="btn btn-primary">Add</button>
                 </div>
             </form>
+
+            <!-- List of users -->
+            <div id="user-list">
+                <!-- User list content will be dynamically updated here -->
+            </div>
         </div>
         
 

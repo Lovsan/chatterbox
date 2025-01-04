@@ -8,7 +8,54 @@ document.addEventListener("DOMContentLoaded", function() {
         // Scroll to the bottom of the chat box
         chatBox.scrollTop = chatBox.scrollHeight;
     }
+
+    // Check if the user list element exists
+    const userList = document.getElementById("user-list");
+    if (userList) {
+        // Refresh the user list every 5 seconds
+        setInterval(refreshUserList, 5000);
+
+        // Initial call to populate the user list immediately
+        refreshUserList();
+    }
 });
+
+
+/**
+ * Function to fetch and update the user list
+ */
+function refreshUserList() {
+    fetch('/chat/user-list') // Fetch the user list from the server
+        .then(response => response.json()) // Parse the JSON response
+        .then(data => {
+            const userList = document.getElementById("user-list");
+            if (userList) {
+                // Clear the current user list
+                userList.innerHTML = '';
+                // Create a new unordered list element
+                const ulElement = document.createElement("ul");
+                ulElement.classList.add("list-group");
+
+                // Populate the user list with the fetched data
+                data.users.forEach(user => {
+                    const liElement = document.createElement("li");
+                    liElement.classList.add("list-group-item");
+
+                    const aElement = document.createElement("a");
+                    aElement.href = `/chat?recipient_id=${user.id}`;
+                    aElement.classList.add("text-decoration-none");
+                    aElement.textContent = user.username;
+
+                    liElement.appendChild(aElement);
+                    ulElement.appendChild(liElement);
+                });
+
+                // Append the unordered list to the user list container
+                userList.appendChild(ulElement);
+            }
+        })
+        .catch(error => console.error('Error fetching user list:', error)); // Handle any errors
+}
 
 
 /**
