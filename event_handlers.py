@@ -2,6 +2,7 @@
 
 
 # import
+from datetime import datetime, timezone
 from flask_socketio import emit, join_room, leave_room
 from flask import session
 from models import User, Message, db
@@ -85,7 +86,8 @@ def register_event_handlers(socketio, app):
         new_message = Message(
             user_id=session["user_id"],
             recipient_id=recipient_db.id,
-            text=message
+            text=message,
+            timestamp=datetime.now(timezone.utc)
         )
         # Add the new message to the database
         db.session.add(new_message)
