@@ -52,7 +52,7 @@ function refreshUserList() {
 
                     // Bold the username of the current recipient
                     if (user.id == recipientId) {
-                        aElement.style.fontWeight = "bold";
+                        aElement.classList.add("active");
                     }
                     
                     liElement.appendChild(aElement);
