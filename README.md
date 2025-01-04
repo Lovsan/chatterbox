@@ -163,7 +163,7 @@ chatterbox/
 - **React Front-End (Optional)**: Migrate the front-end to React for a more dynamic and modern user experience.
 
 ## 🐞 Known Bugs
-- The "Users" panel in "Chat" tab does not update in real time when a message is received from someone other than the current chat participant.
+- None at the moment. All identified issues have been resolved.
 
 ## 📜 License
 
