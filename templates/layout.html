@@ -26,7 +26,7 @@
 
 
 
-<body>
+<body data-lock-timeout="{{ lock_timeout_minutes if session.get('user_id') else 0 }}" data-has-pin="{{ 1 if current_user_profile and current_user_profile.has_pin else 0 }}">
     <header>
         <!-- Navbar -->
         <nav class="navbar navbar-expand-lg bg-body-tertiary">
@@ -52,12 +52,24 @@
                         <li class="nav-item">
                             <a class="nav-link" aria-current="page" href="{{ url_for('author') }}">Author</a>
                         </li>
+                        {% if session.get("is_admin") %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('admin_dashboard') }}">Admin</a>
+                        </li>
+                        {% endif %}
                     </ul>
                     <!-- Login/Register/Logout -->
                     <div class="d-flex">
                         <!-- If user is logged in -->
                         {% if session.get("user_id") %}
-                            <span class="navbar-text mx-3">Welcome, {{ session["username"] }}</span>
+                            <div class="d-flex flex-column text-end me-3">
+                                <span class="navbar-text">Welcome, {{ session["username"] }}</span>
+                                <div class="progress-info mt-1">
+                                    <span class="badge text-bg-info" id="progress-level">Level {{ current_user_profile.level if current_user_profile else 1 }}</span>
+                                    <span class="badge text-bg-warning text-dark" id="progress-badge">{{ current_user_profile.badge if current_user_profile else 'Newcomer' }}</span>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-outline-success mx-1" data-bs-toggle="modal" data-bs-target="#pinModal">Security</button>
                             <a href="{{ url_for('logout') }}" class="btn btn-outline-primary mx-1">Logout</a>
                         <!-- If user is not logged in -->
                         {% else %}
@@ -96,10 +108,61 @@
         <div class="container text-center">
             <p class="mb-0">Chatterbox &copy; 2024</p>
             <p>
-                <a href="https://github.com/FilipRokita/chatterbox" target="_blank" class="no-underline">SOURCE CODE</a> | 
+                <a href="https://github.com/FilipRokita/chatterbox" target="_blank" class="no-underline">SOURCE CODE</a> |
                 <a href="https://raw.githubusercontent.com/FilipRokita/chatterbox/refs/heads/main/LICENSE" target="_blank" class="no-underline">LICENSE</a>
             </p>
-        </div> 
+        </div>
     </footer>
+
+    {% if session.get("user_id") %}
+    <div class="modal fade" id="pinModal" tabindex="-1" aria-labelledby="pinModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark text-white">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title" id="pinModalLabel">Security PIN</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small">Configure a 4-digit PIN to automatically lock your session after periods of inactivity.</p>
+                    <form action="{{ url_for('update_pin') }}" method="post" class="row g-3">
+                        {% if current_user_profile and current_user_profile.has_pin %}
+                        <div class="col-12">
+                            <label for="current-pin" class="form-label">Current PIN</label>
+                            <input type="password" name="current-pin" id="current-pin" class="form-control" maxlength="4" pattern="\d{4}" inputmode="numeric" placeholder="Enter current PIN" required>
+                        </div>
+                        {% endif %}
+                        <div class="col-12 col-md-6">
+                            <label for="pin" class="form-label">New PIN</label>
+                            <input type="password" name="pin" id="pin" class="form-control" maxlength="4" pattern="\d{4}" inputmode="numeric" placeholder="Choose 4 digits" required>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label for="confirm-pin" class="form-label">Confirm PIN</label>
+                            <input type="password" name="confirm-pin" id="confirm-pin" class="form-control" maxlength="4" pattern="\d{4}" inputmode="numeric" placeholder="Repeat PIN" required>
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary w-100">Save PIN</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="security-lock-overlay" class="security-lock-overlay">
+        <div class="security-lock-panel text-center">
+            <h2 class="mb-3">Session Locked</h2>
+            <p id="security-lock-message" class="text-light-emphasis mb-4">Enter your security PIN to continue.</p>
+            <div id="security-lock-error" class="security-lock-error d-none mb-2"></div>
+            <form id="security-lock-form" class="row g-2 justify-content-center">
+                <div class="col-12">
+                    <input type="password" id="security-lock-pin" class="form-control form-control-lg text-center" maxlength="4" pattern="\d{4}" inputmode="numeric" placeholder="••••" required>
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary btn-lg w-100">Unlock</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
 </body>
 </html>

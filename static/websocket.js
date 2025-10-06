@@ -1,49 +1,78 @@
 // This script handles the WebSocket communication between the client and the server
 
-// Ensure that the document is fully loaded before running the script
 document.addEventListener("DOMContentLoaded", function() {
-    // Initialize SocketIO
     const socket = io();
-
-    // Get the message form element
     const messageForm = document.getElementById("message-form");
+    const messageInput = document.getElementById("message-input");
 
-    // Check if the message form exists
+    if (messageForm && messageForm.dataset.chatType === "group") {
+        socket.emit("join_group_room", { group_id: messageForm.dataset.groupId });
+    }
+
     if (messageForm) {
-        // Add an event listener for the form submission
         messageForm.addEventListener("submit", function(event) {
-            // Prevent the default form submission behavior
             event.preventDefault();
-            
-            // Get the message input element and its value
-            const messageInput = document.getElementById("message-input");
-            const message = messageInput.value.trim();
-            
-            // Check if the message is not empty
-            if (message) {
-                // Emit the "send_message" event with the message data
-                socket.emit("send_message", {
-                    username: messageForm.dataset.username, // Sender's username
-                    recipient: messageForm.dataset.recipient, // Recipient's username
-                    message: message // Message text
-                });
-                
-                // Clear the message input field
-                messageInput.value = "";
+
+            if (!messageInput) {
+                return;
             }
+
+            const message = messageInput.value.trim();
+            if (!message) {
+                return;
+            }
+
+            const chatType = messageForm.dataset.chatType;
+            if (chatType === "group") {
+                socket.emit("send_group_message", {
+                    group_id: messageForm.dataset.groupId,
+                    alias: messageForm.dataset.alias,
+                    message: message
+                });
+            } else {
+                socket.emit("send_message", {
+                    username: messageForm.dataset.username,
+                    recipient: messageForm.dataset.recipient,
+                    message: message
+                });
+            }
+
+            messageInput.value = "";
         });
     }
 
-    // Handle receiving messages
     socket.on("receive_message", function(data) {
-        // Get the current username from the form's data attributes
+        if (!messageForm || messageForm.dataset.chatType !== "direct") {
+            return;
+        }
         const currentUsername = messageForm.dataset.username;
+        const activeRecipient = messageForm.dataset.recipient;
+        if (
+            (data.recipient === currentUsername && data.username === activeRecipient) ||
+            (data.username === currentUsername && data.recipient === activeRecipient)
+        ) {
+            appendMessage(data.username, currentUsername, data.message, data.timestamp);
+        }
+    });
 
-        // Check if the received message is for the current chat
-        if ((data.recipient === currentUsername && data.username === messageForm.dataset.recipient) ||
-            (data.username === currentUsername && data.recipient === messageForm.dataset.recipient)) {
-            // Use the appendMessage function to create and append the message element
-            appendMessage(data.username, currentUsername, data.message);
+    socket.on("receive_group_message", function(data) {
+        if (!messageForm || messageForm.dataset.chatType !== "group") {
+            return;
+        }
+        if (String(data.group_id) !== String(messageForm.dataset.groupId)) {
+            return;
+        }
+        appendMessage(data.alias, messageForm.dataset.alias, data.message, data.timestamp);
+    });
+
+    socket.on("progress_update", function(data) {
+        updateProgressDisplay(data);
+    });
+
+    socket.on("error", function(data) {
+        if (data && data.error) {
+            console.warn('Chat error:', data.error);
+            alert(data.error);
         }
     });
 });
