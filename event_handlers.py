@@ -2,7 +2,12 @@
 
 
 # import
+import base64
+import logging
+import time
+from collections import defaultdict, deque
 from datetime import datetime, timezone
+from typing import Dict, Optional
 
 from flask import session
 from flask_socketio import emit, join_room, leave_room
@@ -16,9 +21,146 @@ from models import (
     MediaUploadToken,
     Message,
     MessageAttachment,
+    TranslatedTranscript,
     User,
     db,
 )
+
+try:  # pragma: no cover - optional cloud dependencies
+    from google.api_core.exceptions import GoogleAPIError
+    from google.cloud import speech
+    from google.cloud import translate_v2 as translate
+except Exception:  # pragma: no cover - gracefully handle missing deps
+    GoogleAPIError = Exception
+    speech = None
+    translate = None
+
+
+logger = logging.getLogger(__name__)
+
+
+_speech_client: Optional["speech.SpeechClient"] = None
+_translate_client: Optional["translate.Client"] = None
+_translation_preferences: Dict[str, Dict[int, Dict[str, object]]] = defaultdict(dict)
+_rate_limiter: Dict[int, deque] = defaultdict(deque)
+_PREFERENCE_TTL_SECONDS = 60 * 60  # 1 hour cache
+_RATE_LIMIT_WINDOW_SECONDS = 5
+_RATE_LIMIT_MAX_EVENTS = 20
+
+
+def _get_speech_client() -> Optional["speech.SpeechClient"]:
+    global _speech_client
+    if _speech_client is not None:
+        return _speech_client
+    if speech is None:  # pragma: no cover - dependency missing
+        logger.warning("Google Cloud Speech dependency is not installed; transcription disabled.")
+        return None
+    try:
+        _speech_client = speech.SpeechClient()
+    except Exception as exc:  # pragma: no cover - runtime configuration issue
+        logger.warning("Unable to instantiate Speech client: %s", exc)
+        _speech_client = None
+    return _speech_client
+
+
+def _get_translate_client() -> Optional["translate.Client"]:
+    global _translate_client
+    if _translate_client is not None:
+        return _translate_client
+    if translate is None:  # pragma: no cover - dependency missing
+        logger.warning("Google Cloud Translate dependency is not installed; translation disabled.")
+        return None
+    try:
+        _translate_client = translate.Client()
+    except Exception as exc:  # pragma: no cover
+        logger.warning("Unable to instantiate Translate client: %s", exc)
+        _translate_client = None
+    return _translate_client
+
+
+def _allow_transcription_request(user_id: int) -> bool:
+    bucket = _rate_limiter[user_id]
+    now = time.time()
+    while bucket and now - bucket[0] > _RATE_LIMIT_WINDOW_SECONDS:
+        bucket.popleft()
+    if len(bucket) >= _RATE_LIMIT_MAX_EVENTS:
+        return False
+    bucket.append(now)
+    return True
+
+
+def _prune_preferences(call_id: str) -> Dict[int, Dict[str, object]]:
+    prefs = _translation_preferences.get(call_id, {})
+    if not prefs:
+        return {}
+    now = time.time()
+    expired = [
+        user_id
+        for user_id, value in prefs.items()
+        if now - float(value.get("updated_at", now)) > _PREFERENCE_TTL_SECONDS
+    ]
+    for user_id in expired:
+        prefs.pop(user_id, None)
+    if not prefs:
+        _translation_preferences.pop(call_id, None)
+        return {}
+    return prefs
+
+
+def _transcribe_audio(content: bytes, language_code: Optional[str]) -> Optional[Dict[str, str]]:
+    client = _get_speech_client()
+    if not client:
+        return None
+    config = speech.RecognitionConfig(
+        encoding=speech.RecognitionConfig.AudioEncoding.WEBM_OPUS,
+        language_code=language_code or "en-US",
+        enable_automatic_punctuation=True,
+        sample_rate_hertz=48000,
+    )
+    audio = speech.RecognitionAudio(content=content)
+    try:
+        response = client.recognize(config=config, audio=audio)
+    except GoogleAPIError as exc:
+        logger.warning("Speech recognition failed: %s", exc)
+        return None
+    except Exception as exc:  # pragma: no cover - network failure
+        logger.exception("Unexpected speech recognition error: %s", exc)
+        return None
+    for result in response.results:
+        if result.alternatives:
+            alternative = result.alternatives[0]
+            detected_language = getattr(result, "language_code", None) or config.language_code
+            return {
+                "transcript": alternative.transcript,
+                "language_code": detected_language,
+            }
+    return None
+
+
+def _translate_text(
+    text: str,
+    target_language: str,
+    source_language: Optional[str] = None,
+) -> Optional[str]:
+    if not text:
+        return None
+    client = _get_translate_client()
+    if not client:
+        return text
+    try:
+        result = client.translate(
+            text,
+            target_language=target_language,
+            source_language=source_language,
+            format_="text",
+        )
+    except GoogleAPIError as exc:
+        logger.warning("Translation failed: %s", exc)
+        return None
+    except Exception as exc:  # pragma: no cover
+        logger.exception("Unexpected translation error: %s", exc)
+        return None
+    return result.get("translatedText") if isinstance(result, dict) else None
 
 
 def register_event_handlers(socketio, app):
@@ -360,6 +502,171 @@ def register_event_handlers(socketio, app):
                 "progress_update",
                 {"xp": sender.xp, "level": sender.level, "badge": sender.badge},
                 room=f"user_{sender.id}",
+            )
+
+    @socketio.on("join_call_room")
+    def handle_join_call_room_event(data):
+        """Allow callers to subscribe to translated caption broadcasts."""
+
+        if "user_id" not in session:
+            emit("error", {"error": "You must be logged in to join calls."})
+            return
+
+        call_id = (data or {}).get("call_id")
+        if not call_id:
+            emit("error", {"error": "Call identifier is required."})
+            return
+
+        join_room(f"call_{call_id}")
+        emit("call_room_joined", {"call_id": call_id})
+
+    @socketio.on("set_translation_preferences")
+    def handle_set_translation_preferences(data):
+        """Persist participant translation preferences during a call."""
+
+        if "user_id" not in session:
+            emit("error", {"error": "You must be logged in to configure translation."})
+            return
+
+        call_id = (data or {}).get("call_id")
+        if not call_id:
+            emit("error", {"error": "Call identifier is required."})
+            return
+
+        target_language = (data or {}).get("target_language") or "en"
+        enabled = bool((data or {}).get("enabled"))
+        source_language = (data or {}).get("source_language") or None
+
+        preferences = _translation_preferences[call_id]
+        preferences[session["user_id"]] = {
+            "language": target_language,
+            "enabled": enabled,
+            "source_language": source_language,
+            "updated_at": time.time(),
+        }
+
+        emit(
+            "translation_preferences_updated",
+            {
+                "call_id": call_id,
+                "enabled": enabled,
+                "target_language": target_language,
+            },
+        )
+
+    @socketio.on("call_transcription_chunk")
+    def handle_call_transcription_chunk(data):
+        """Process audio samples, transcribe them, and broadcast translations."""
+
+        if "user_id" not in session:
+            emit("error", {"error": "You must be logged in to stream audio."})
+            return
+
+        if not _allow_transcription_request(session["user_id"]):
+            emit(
+                "translation_error",
+                {
+                    "call_id": (data or {}).get("call_id"),
+                    "message": "Transcription rate limit exceeded. Please pause briefly.",
+                },
+            )
+            return
+
+        call_id = (data or {}).get("call_id")
+        audio_chunk = (data or {}).get("audio_chunk")
+        preferred_language = (data or {}).get("source_language")
+
+        if not call_id or not audio_chunk:
+            emit("error", {"error": "Audio chunk and call identifier are required."})
+            return
+
+        try:
+            audio_bytes = base64.b64decode(audio_chunk)
+        except (TypeError, ValueError):
+            emit("error", {"error": "Invalid audio payload."})
+            return
+
+        transcription = _transcribe_audio(audio_bytes, preferred_language)
+        if not transcription or not transcription.get("transcript"):
+            return
+
+        transcript_text = transcription["transcript"].strip()
+        detected_language = transcription.get("language_code") or preferred_language
+
+        preferences = _prune_preferences(call_id)
+
+        translated_entries = []
+        if preferences:
+            for user_id, preference in preferences.items():
+                if not preference.get("enabled"):
+                    continue
+                target_language = (preference.get("language") or "en").split("-")[0]
+                translation = _translate_text(
+                    transcript_text,
+                    target_language=target_language,
+                    source_language=detected_language,
+                )
+                if translation is None:
+                    continue
+                entry = TranslatedTranscript(
+                    call_id=call_id,
+                    speaker_user_id=session.get("user_id"),
+                    original_language=detected_language,
+                    target_language=target_language,
+                    transcript_text=transcript_text,
+                    translated_text=translation,
+                )
+                db.session.add(entry)
+                translated_entries.append(
+                    {
+                        "call_id": call_id,
+                        "target_language": target_language,
+                        "translation": translation,
+                        "transcript": transcript_text,
+                        "original_language": detected_language,
+                        "speaker_user_id": session.get("user_id"),
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
+
+        if translated_entries:
+            try:
+                db.session.commit()
+            except Exception as exc:  # pragma: no cover - database error
+                db.session.rollback()
+                logger.exception("Failed to persist translated transcripts: %s", exc)
+            else:
+                for payload in translated_entries:
+                    emit("translated_caption", payload, room=f"call_{call_id}")
+
+        else:
+            fallback_language = detected_language or (preferred_language or "en")
+            try:
+                fallback_entry = TranslatedTranscript(
+                    call_id=call_id,
+                    speaker_user_id=session.get("user_id"),
+                    original_language=detected_language,
+                    target_language=fallback_language,
+                    transcript_text=transcript_text,
+                    translated_text=transcript_text,
+                )
+                db.session.add(fallback_entry)
+                db.session.commit()
+            except Exception as exc:  # pragma: no cover - database error
+                db.session.rollback()
+                logger.exception("Failed to persist fallback transcript: %s", exc)
+            emit(
+                "translated_caption",
+                {
+                    "call_id": call_id,
+                    "target_language": fallback_language,
+                    "translation": transcript_text,
+                    "transcript": transcript_text,
+                    "original_language": detected_language,
+                    "speaker_user_id": session.get("user_id"),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                },
+                room=f"call_{call_id}",
             )
 
     @socketio.on("join_group_room")

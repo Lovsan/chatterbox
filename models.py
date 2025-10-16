@@ -178,3 +178,18 @@ class MediaUploadToken(db.Model):
 
     def mark_consumed(self) -> None:
         self.consumed_at = datetime.now(timezone.utc)
+
+
+class TranslatedTranscript(db.Model):
+    """Persisted translated captions for call replays."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    call_id = db.Column(db.String(64), nullable=False, index=True)
+    speaker_user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    original_language = db.Column(db.String(10), nullable=True)
+    target_language = db.Column(db.String(10), nullable=False)
+    transcript_text = db.Column(db.Text, nullable=False)
+    translated_text = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+
+    speaker = db.relationship("User", backref="translated_transcripts")
