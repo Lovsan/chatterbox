@@ -1,8 +1,12 @@
 """Main Flask application for Chatterbox."""
 
+import mimetypes
+import os
 import secrets
 import string
+import uuid
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from flask import (
     Flask,
@@ -23,6 +27,8 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from event_handlers import register_event_handlers
 from helpers import admin_required, login_required, logout_required
+from flask import send_from_directory
+
 from models import (
     db,
     BannedCountry,
@@ -32,7 +38,10 @@ from models import (
     Group,
     GroupMembership,
     GroupMessage,
+    GroupMessageAttachment,
+    MediaUploadToken,
     Message,
+    MessageAttachment,
     ModeratorAssignment,
     User,
 )
@@ -42,6 +51,12 @@ app = Flask(__name__)
 
 # reload templates
 app.config["TEMPLATES_AUTO_RELOAD"] = True
+
+# configure uploads
+uploads_path = Path(app.instance_path) / "uploads"
+uploads_path.mkdir(parents=True, exist_ok=True)
+app.config["UPLOAD_FOLDER"] = str(uploads_path)
+app.config.setdefault("MAX_UPLOAD_SIZE", 25 * 1024 * 1024)  # 25 MB default
 
 # configure database
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///chatterbox.db"
@@ -106,6 +121,83 @@ def get_client_country() -> str:
 LOCK_TIMEOUT_MINUTES = 6
 
 
+@app.route("/uploads/<path:filename>")
+def serve_upload(filename: str):
+    """Serve media uploads from the instance storage directory."""
+
+    uploads_dir = Path(app.config["UPLOAD_FOLDER"])
+    return send_from_directory(uploads_dir, filename)
+
+
+@app.route("/api/uploads", methods=["POST"])
+def create_upload():
+    """Accept an uploaded media blob and issue a token for later attachment."""
+
+    if not session.get("user_id"):
+        return jsonify({"error": "Authentication required."}), 401
+
+    if request.content_length and request.content_length > app.config["MAX_UPLOAD_SIZE"]:
+        return jsonify({"error": "Upload exceeds size limit."}), 413
+
+    uploaded_file = request.files.get("file")
+    if not uploaded_file or uploaded_file.filename is None:
+        return jsonify({"error": "No media file provided."}), 400
+
+    provided_mime = request.form.get("mime_type") or uploaded_file.mimetype
+    if not provided_mime:
+        provided_mime = mimetypes.guess_type(uploaded_file.filename)[0]
+
+    media_category = categorize_mime_type(provided_mime or "")
+    if not media_category:
+        return jsonify({"error": "Unsupported media type."}), 400
+
+    duration_seconds = None
+    if request.form.get("duration"):
+        try:
+            duration_seconds = float(request.form["duration"])
+        except (TypeError, ValueError):
+            duration_seconds = None
+
+    extension = Path(uploaded_file.filename or "").suffix
+    if not extension:
+        extension = mimetypes.guess_extension(provided_mime or "") or ""
+    if extension and not extension.startswith("."):
+        extension = f".{extension}"
+
+    filename = f"{uuid.uuid4().hex}{extension or ''}"
+    file_path = Path(app.config["UPLOAD_FOLDER"]) / filename
+
+    try:
+        uploaded_file.save(file_path)
+    except OSError:
+        return jsonify({"error": "Unable to save uploaded file."}), 500
+
+    upload_token = MediaUploadToken(
+        user_id=session["user_id"],
+        storage_path=filename,
+        media_type=media_category,
+        mime_type=provided_mime,
+        duration_seconds=duration_seconds,
+    )
+    db.session.add(upload_token)
+    db.session.flush()
+    token_value = upload_token.token
+    db.session.commit()
+
+    return (
+        jsonify(
+            {
+                "token": token_value,
+                "media_type": upload_token.media_type,
+                "mime_type": upload_token.mime_type,
+                "url": url_for("serve_upload", filename=filename),
+                "duration_seconds": upload_token.duration_seconds,
+            }
+        ),
+        201,
+    )
+
+
 def ensure_schema() -> None:
     """Ensure upgraded installations have the required database schema."""
 
@@ -151,11 +243,56 @@ def ensure_schema() -> None:
         if alter_statements:
             db.session.commit()
 
+        updates_performed = False
+        if "message" in existing_tables:
+            db.session.execute(text("UPDATE message SET text='' WHERE text IS NULL"))
+            updates_performed = True
+        if "group_message" in existing_tables:
+            db.session.execute(
+                text("UPDATE group_message SET text='' WHERE text IS NULL")
+            )
+            updates_performed = True
+        if updates_performed:
+            db.session.commit()
+
         # Ensure any newly introduced tables are created.
         db.create_all()
 
 
 ensure_schema()
+
+
+ALLOWED_MEDIA_TYPES = {
+    "image": {
+        "image/jpeg",
+        "image/png",
+        "image/gif",
+        "image/webp",
+    },
+    "audio": {
+        "audio/mpeg",
+        "audio/ogg",
+        "audio/webm",
+        "audio/wav",
+    },
+    "video": {
+        "video/webm",
+        "video/mp4",
+        "video/ogg",
+    },
+}
+
+
+def categorize_mime_type(mime_type: str) -> str | None:
+    """Return the media category for a MIME type."""
+
+    if not mime_type:
+        return None
+    normalized = mime_type.lower()
+    for category, allowed_set in ALLOWED_MEDIA_TYPES.items():
+        if normalized in allowed_set or normalized.startswith(f"{category}/"):
+            return category
+    return None
 
 
 @app.before_request

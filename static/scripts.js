@@ -16,6 +16,7 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     initializeSecurityLock();
+    initializeMediaControls();
 });
 
 function refreshUserList() {
@@ -123,22 +124,55 @@ function formatExpiry(isoString) {
     }
 }
 
-function appendMessage(senderLabel, currentLabel, message, timestamp) {
+function appendMessage(senderLabel, currentLabel, message, timestamp, attachments = []) {
     const chatBox = document.getElementById("chat-box");
     if (!chatBox) {
         return;
     }
 
-    const messageElement = document.createElement("div");
-    messageElement.classList.add("mb-2");
-
     const label = senderLabel === currentLabel ? 'You' : senderLabel;
     const titleDate = timestamp ? new Date(timestamp) : new Date();
-    messageElement.innerHTML = `
-        <strong class="${label === 'You' ? 'text-primary' : 'text-secondary'}">${label}:</strong>
-        ${message}
-    `;
+
+    const messageElement = document.createElement("div");
+    messageElement.classList.add("chat-message", "mb-3");
     messageElement.setAttribute("title", titleDate.toLocaleString());
+
+    const headerElement = document.createElement("div");
+    headerElement.classList.add("chat-message-header");
+    headerElement.innerHTML = `<strong class="${label === 'You' ? 'text-primary' : 'text-secondary'}">${label}:</strong>`;
+    messageElement.appendChild(headerElement);
+
+    if (message) {
+        const bodyElement = document.createElement("div");
+        bodyElement.classList.add("chat-message-body");
+        bodyElement.textContent = message;
+        messageElement.appendChild(bodyElement);
+    }
+
+    if (attachments && attachments.length) {
+        const attachmentsContainer = document.createElement("div");
+        attachmentsContainer.classList.add("chat-attachments");
+
+        attachments.forEach(attachment => {
+            const card = document.createElement("div");
+            card.classList.add("chat-media-card");
+            const mediaElement = createMediaElement(attachment);
+            if (mediaElement) {
+                card.appendChild(mediaElement);
+                if (attachment.duration_seconds) {
+                    const duration = document.createElement("div");
+                    duration.classList.add("chat-media-meta", "small", "text-muted");
+                    duration.textContent = formatDuration(attachment.duration_seconds);
+                    card.appendChild(duration);
+                }
+                attachmentsContainer.appendChild(card);
+            }
+        });
+
+        if (attachmentsContainer.childElementCount) {
+            messageElement.appendChild(attachmentsContainer);
+        }
+    }
 
     chatBox.appendChild(messageElement);
     chatBox.scrollTop = chatBox.scrollHeight;
@@ -160,6 +194,265 @@ function updateProgressDisplay(progress) {
 
 window.appendMessage = appendMessage;
 window.updateProgressDisplay = updateProgressDisplay;
+
+function formatDuration(seconds) {
+    const totalSeconds = Math.max(0, Math.round(Number(seconds) || 0));
+    const minutes = Math.floor(totalSeconds / 60);
+    const remaining = totalSeconds % 60;
+    if (minutes > 0) {
+        return `${minutes}:${remaining.toString().padStart(2, '0')}`;
+    }
+    return `${remaining}s`;
+}
+
+function createMediaElement(attachment) {
+    if (!attachment) {
+        return null;
+    }
+    const source = attachment.url || (attachment.storage_path ? `/uploads/${attachment.storage_path}` : null);
+    if (!source) {
+        return null;
+    }
+
+    const mediaType = (attachment.media_type || '').toLowerCase();
+    if (mediaType === 'image') {
+        const img = document.createElement('img');
+        img.classList.add('chat-media', 'chat-media-image');
+        img.src = source;
+        img.alt = 'Shared image';
+        return img;
+    }
+    if (mediaType === 'audio') {
+        const audio = document.createElement('audio');
+        audio.classList.add('chat-media');
+        audio.controls = true;
+        audio.src = source;
+        return audio;
+    }
+    if (mediaType === 'video') {
+        const video = document.createElement('video');
+        video.classList.add('chat-media');
+        video.controls = true;
+        video.src = source;
+        return video;
+    }
+
+    const link = document.createElement('a');
+    link.href = source;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.textContent = 'Download attachment';
+    return link;
+}
+
+function initializeMediaControls() {
+    const messageForm = document.getElementById('message-form');
+    const previewContainer = document.getElementById('attachment-preview');
+    const uploadButton = document.getElementById('attachment-upload-btn');
+    const voiceButton = document.getElementById('voice-record-btn');
+    const videoButton = document.getElementById('video-record-btn');
+    const clearButton = document.getElementById('attachment-clear-btn');
+    const fileInput = document.getElementById('attachment-file-input');
+
+    if (!messageForm) {
+        window.chatAttachmentState = {
+            pendingUpload: null,
+            clearPendingUpload: () => {},
+        };
+        return;
+    }
+
+    const state = {
+        pendingUpload: null,
+        mediaRecorder: null,
+        mediaStream: null,
+        recordingStart: null,
+        setPendingUpload(upload) {
+            this.pendingUpload = upload;
+            if (!previewContainer) {
+                return;
+            }
+            previewContainer.innerHTML = '';
+            const element = createMediaElement(upload);
+            if (element) {
+                previewContainer.appendChild(element);
+                previewContainer.classList.remove('d-none');
+            }
+            if (clearButton) {
+                clearButton.classList.remove('d-none');
+            }
+        },
+        clearPendingUpload() {
+            this.pendingUpload = null;
+            if (previewContainer) {
+                previewContainer.innerHTML = '';
+                previewContainer.classList.add('d-none');
+            }
+            if (clearButton) {
+                clearButton.classList.add('d-none');
+            }
+            if (fileInput) {
+                fileInput.value = '';
+            }
+        },
+    };
+
+    window.chatAttachmentState = state;
+
+    const setUploading = (isUploading) => {
+        messageForm.classList.toggle('is-uploading', Boolean(isUploading));
+        [uploadButton, voiceButton, videoButton].forEach((btn) => {
+            if (btn) {
+                btn.disabled = Boolean(isUploading);
+            }
+        });
+    };
+
+    const cleanupRecorder = () => {
+        if (state.mediaStream) {
+            state.mediaStream.getTracks().forEach((track) => track.stop());
+        }
+        state.mediaStream = null;
+        state.mediaRecorder = null;
+        state.recordingStart = null;
+        if (voiceButton) {
+            voiceButton.textContent = voiceButton.dataset.defaultLabel || 'Voice Clip';
+            voiceButton.classList.remove('btn-danger');
+            voiceButton.dataset.state = 'idle';
+        }
+        if (videoButton) {
+            videoButton.textContent = videoButton.dataset.defaultLabel || 'Video Clip';
+            videoButton.classList.remove('btn-danger');
+            videoButton.dataset.state = 'idle';
+        }
+    };
+
+    const uploadBlob = (blob, mimeType, durationSeconds) => {
+        if (!blob) {
+            return;
+        }
+        state.clearPendingUpload();
+        const formData = new FormData();
+        const extension = (mimeType && mimeType.includes('/')) ? mimeType.split('/')[1] : 'bin';
+        formData.append('file', blob, `upload.${extension}`);
+        if (mimeType) {
+            formData.append('mime_type', mimeType);
+        }
+        if (typeof durationSeconds === 'number' && !Number.isNaN(durationSeconds)) {
+            formData.append('duration', String(durationSeconds));
+        }
+
+        setUploading(true);
+        fetch('/api/uploads', {
+            method: 'POST',
+            body: formData,
+        })
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error('Upload failed');
+                }
+                return response.json();
+            })
+            .then((payload) => {
+                state.setPendingUpload(payload);
+            })
+            .catch((error) => {
+                console.error('Upload error:', error);
+                alert('Failed to upload media. Please try again.');
+            })
+            .finally(() => {
+                setUploading(false);
+            });
+    };
+
+    if (clearButton) {
+        clearButton.addEventListener('click', () => {
+            state.clearPendingUpload();
+        });
+    }
+
+    if (uploadButton && fileInput) {
+        uploadButton.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (event) => {
+            const file = event.target.files ? event.target.files[0] : null;
+            if (!file) {
+                return;
+            }
+            uploadBlob(file, file.type, null);
+        });
+    }
+
+    const beginRecording = async (mode) => {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            alert('Media recording is not supported in this browser.');
+            return;
+        }
+
+        const isAudio = mode === 'audio';
+        const triggerButton = isAudio ? voiceButton : videoButton;
+        if (!triggerButton) {
+            return;
+        }
+
+        if (state.mediaRecorder && state.mediaRecorder.state !== 'inactive') {
+            state.mediaRecorder.stop();
+            return;
+        }
+
+        try {
+            const constraints = isAudio ? { audio: true } : { audio: true, video: true };
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            state.mediaStream = stream;
+            const recorder = new MediaRecorder(stream);
+            const chunks = [];
+            state.mediaRecorder = recorder;
+            state.recordingStart = Date.now();
+
+            triggerButton.dataset.defaultLabel = triggerButton.dataset.defaultLabel || triggerButton.textContent.trim();
+            triggerButton.textContent = 'Stop Recording';
+            triggerButton.classList.add('btn-danger');
+            triggerButton.dataset.state = 'recording';
+
+            recorder.ondataavailable = (event) => {
+                if (event.data && event.data.size > 0) {
+                    chunks.push(event.data);
+                }
+            };
+
+            recorder.onstop = () => {
+                const mimeType = recorder.mimeType || (isAudio ? 'audio/webm' : 'video/webm');
+                const blob = new Blob(chunks, { type: mimeType });
+                const durationSeconds = state.recordingStart
+                    ? (Date.now() - state.recordingStart) / 1000
+                    : undefined;
+                cleanupRecorder();
+                uploadBlob(blob, mimeType, durationSeconds);
+            };
+
+            recorder.onerror = (event) => {
+                console.error('Recorder error:', event);
+                cleanupRecorder();
+                alert('Recording failed. Please try again.');
+            };
+
+            recorder.start();
+        } catch (error) {
+            console.error('Unable to start recording:', error);
+            cleanupRecorder();
+            alert('Unable to access the required media devices.');
+        }
+    };
+
+    if (voiceButton) {
+        voiceButton.addEventListener('click', () => beginRecording('audio'));
+        voiceButton.dataset.defaultLabel = voiceButton.textContent.trim() || 'Voice Clip';
+    }
+
+    if (videoButton) {
+        videoButton.addEventListener('click', () => beginRecording('video'));
+        videoButton.dataset.defaultLabel = videoButton.textContent.trim() || 'Video Clip';
+    }
+}
 
 function initializeSecurityLock() {
     const body = document.body;

@@ -4,6 +4,7 @@ document.addEventListener("DOMContentLoaded", function() {
     const socket = io();
     const messageForm = document.getElementById("message-form");
     const messageInput = document.getElementById("message-input");
+    const attachmentState = window.chatAttachmentState || { pendingUpload: null, clearPendingUpload: () => {} };
 
     if (messageForm && messageForm.dataset.chatType === "group") {
         socket.emit("join_group_room", { group_id: messageForm.dataset.groupId });
@@ -17,13 +18,31 @@ document.addEventListener("DOMContentLoaded", function() {
                 return;
             }
 
-            const message = messageInput.value.trim();
-            if (!message) {
+            const message = messageInput ? messageInput.value.trim() : "";
+            const pendingUpload = attachmentState.pendingUpload;
+
+            if (!message && !pendingUpload) {
                 return;
             }
 
             const chatType = messageForm.dataset.chatType;
-            if (chatType === "group") {
+            if (pendingUpload) {
+                const payload = {
+                    chat_type: chatType,
+                    caption: message,
+                    upload_token: pendingUpload.token,
+                };
+
+                if (chatType === "group") {
+                    payload.group_id = messageForm.dataset.groupId;
+                    payload.alias = messageForm.dataset.alias;
+                } else {
+                    payload.username = messageForm.dataset.username;
+                    payload.recipient = messageForm.dataset.recipient;
+                }
+
+                socket.emit("send_media_message", payload);
+            } else if (chatType === "group") {
                 socket.emit("send_group_message", {
                     group_id: messageForm.dataset.groupId,
                     alias: messageForm.dataset.alias,
@@ -37,7 +56,12 @@ document.addEventListener("DOMContentLoaded", function() {
                 });
             }
 
-            messageInput.value = "";
+            if (messageInput) {
+                messageInput.value = "";
+            }
+            if (attachmentState && typeof attachmentState.clearPendingUpload === 'function') {
+                attachmentState.clearPendingUpload();
+            }
         });
     }
 
@@ -51,7 +75,13 @@ document.addEventListener("DOMContentLoaded", function() {
             (data.recipient === currentUsername && data.username === activeRecipient) ||
             (data.username === currentUsername && data.recipient === activeRecipient)
         ) {
-            appendMessage(data.username, currentUsername, data.message, data.timestamp);
+            appendMessage(
+                data.username,
+                currentUsername,
+                data.message,
+                data.timestamp,
+                data.attachments || []
+            );
         }
     });
 
@@ -62,7 +92,13 @@ document.addEventListener("DOMContentLoaded", function() {
         if (String(data.group_id) !== String(messageForm.dataset.groupId)) {
             return;
         }
-        appendMessage(data.alias, messageForm.dataset.alias, data.message, data.timestamp);
+        appendMessage(
+            data.alias,
+            messageForm.dataset.alias,
+            data.message,
+            data.timestamp,
+            data.attachments || []
+        );
     });
 
     socket.on("progress_update", function(data) {
