@@ -40,9 +40,131 @@ main {
     overflow-y: auto;
     word-wrap: break-word;
     text-align: left;
+    background-color: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.5rem;
+    padding: 1rem;
 }
 
-#user-list {
-    height: 55vh;
+#user-list,
+#group-list {
+    max-height: 40vh;
+    overflow-y: auto;
+}
+
+#group-list .list-group-item {
+    background-color: transparent;
+}
+
+.progress-info .badge {
+    font-size: 0.85rem;
+}
+
+.security-lock-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.92);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    padding: 2rem;
+    transition: opacity 0.3s ease;
+}
+
+.security-lock-overlay.active {
+    display: flex;
+}
+
+.security-lock-panel {
+    max-width: 420px;
+    width: 100%;
+    background: rgba(17, 24, 39, 0.95);
+    border-radius: 1rem;
+    padding: 2.5rem 2rem;
+    box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(59, 130, 246, 0.35);
+}
+
+.security-lock-panel h2 {
+    font-weight: 700;
+    letter-spacing: 0.05em;
+}
+
+.security-lock-error {
+    font-size: 0.9rem;
+    color: #f87171;
+}
+
+body.locked {
+    overflow: hidden;
+}
+
+.hub-card {
+    border-radius: 0.75rem;
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(59, 130, 246, 0.08));
+    border: 1px solid rgba(59, 130, 246, 0.15);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hub-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 1rem 2rem rgba(59, 130, 246, 0.2);
+}
+
+.hub-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(59, 130, 246, 0.25);
+    color: #e0f2fe;
+    font-weight: 700;
+}
+
+.admin-dashboard .admin-panel {
+    background: rgba(17, 24, 39, 0.7);
+    border-radius: 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    box-shadow: 0 2rem 4rem rgba(15, 23, 42, 0.4);
+}
+
+.admin-metric-card {
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    color: #0f172a;
+    font-weight: 600;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 120px;
+    background: linear-gradient(135deg, #bfdbfe, #dbeafe);
+}
+
+.admin-metric-card .admin-metric-label {
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    opacity: 0.8;
+}
+
+.admin-metric-card .admin-metric-value {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-top: 0.5rem;
+}
+
+.admin-metric-card.alt {
+    background: linear-gradient(135deg, #a7f3d0, #d1fae5);
+}
+
+.admin-metric-card.danger {
+    background: linear-gradient(135deg, #fecaca, #fee2e2);
+}
+
+.admin-table-wrapper {
+    max-height: 320px;
     overflow-y: auto;
 }

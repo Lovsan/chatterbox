@@ -1,0 +1,15 @@
+{% extends "layout.html" %}
+{% block title %}Access Denied{% endblock %}
+
+{% block main %}
+<div class="py-5">
+    <div class="card bg-dark border-danger border-2 mx-auto" style="max-width: 540px;">
+        <div class="card-body text-start">
+            <h2 class="text-danger">🚫 Access Denied</h2>
+            <p class="mb-3">{{ reason or 'Your connection has been blocked by an administrator.' }}</p>
+            <p class="text-muted small">If you believe this is an error please reach out to the site administrators.</p>
+            <a href="{{ url_for('home') }}" class="btn btn-outline-light mt-3">Return Home</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
