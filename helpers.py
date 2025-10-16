@@ -32,3 +32,16 @@ def logout_required(f):
             return redirect(url_for("chat"))
         return f(*args, **kwargs)
     return decorated_function
+
+
+def admin_required(f):
+    """Decorator function to require admin privileges."""
+
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get("is_admin"):
+            flash("Administrator access required.")
+            return redirect(url_for("chat"))
+        return f(*args, **kwargs)
+
+    return decorated_function

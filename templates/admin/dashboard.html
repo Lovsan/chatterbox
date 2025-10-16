@@ -1,0 +1,340 @@
+{% extends "layout.html" %}
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block main %}
+<div class="admin-dashboard container-fluid text-start">
+    <div class="row g-4">
+        <div class="col-12">
+            <div class="card admin-panel border-0">
+                <div class="card-body">
+                    <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3">
+                        <div>
+                            <h3 class="mb-1">Administrator Command Center</h3>
+                            <p class="text-muted mb-0">Oversee community health, moderate conversations, and tune global protections.</p>
+                        </div>
+                        <div class="text-lg-end">
+                            <span class="badge text-bg-success">{{ users|length }} users</span>
+                            <span class="badge text-bg-secondary">{{ moderators|length }} moderators</span>
+                        </div>
+                    </div>
+
+                    <div class="row row-cols-1 row-cols-md-3 g-3 mt-4">
+                        <div class="col">
+                            <div class="admin-metric-card">
+                                <span class="admin-metric-label">Total Users</span>
+                                <span class="admin-metric-value">{{ users|length }}</span>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <div class="admin-metric-card alt">
+                                <span class="admin-metric-label">Active Hubs</span>
+                                <span class="admin-metric-value">{{ hubs|selectattr('is_enabled')|list|length }}</span>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <div class="admin-metric-card danger">
+                                <span class="admin-metric-label">Threat Blocks</span>
+                                <span class="admin-metric-value">{{ banned_ips|length + banned_countries|length + blocked_words|length }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-xl-6">
+            <div class="card admin-panel border-0 h-100">
+                <div class="card-body">
+                    <h4 class="mb-3">Access Controls</h4>
+                    <div class="accordion" id="accessAccordion">
+                        <div class="accordion-item bg-transparent border-secondary-subtle">
+                            <h2 class="accordion-header" id="ipHeading">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#ipControls" aria-expanded="false" aria-controls="ipControls">
+                                    Ban IP Addresses
+                                </button>
+                            </h2>
+                            <div id="ipControls" class="accordion-collapse collapse" aria-labelledby="ipHeading" data-bs-parent="#accessAccordion">
+                                <div class="accordion-body">
+                                    <form method="post" class="row g-2 align-items-end mb-3">
+                                        <input type="hidden" name="action" value="ban_ip">
+                                        <div class="col-md-5">
+                                            <label class="form-label" for="ip-address">IP Address</label>
+                                            <input type="text" class="form-control" id="ip-address" name="ip-address" placeholder="203.0.113.1" required>
+                                        </div>
+                                        <div class="col-md-5">
+                                            <label class="form-label" for="ip-reason">Reason</label>
+                                            <input type="text" class="form-control" id="ip-reason" name="ip-reason" placeholder="Automated spam">
+                                        </div>
+                                        <div class="col-md-2 d-grid">
+                                            <button class="btn btn-danger" type="submit">Ban</button>
+                                        </div>
+                                    </form>
+                                    <div class="admin-table-wrapper">
+                                        <table class="table table-sm table-dark align-middle mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th scope="col">IP</th>
+                                                    <th scope="col">Reason</th>
+                                                    <th scope="col">Added</th>
+                                                    <th scope="col" class="text-end">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for entry in banned_ips %}
+                                                <tr>
+                                                    <td>{{ entry.ip_address }}</td>
+                                                    <td>{{ entry.reason or '—' }}</td>
+                                                    <td>{{ entry.created_at.astimezone().strftime('%Y-%m-%d %H:%M') }}</td>
+                                                    <td class="text-end">
+                                                        <form method="post" class="d-inline">
+                                                            <input type="hidden" name="action" value="unban_ip">
+                                                            <input type="hidden" name="entry-id" value="{{ entry.id }}">
+                                                            <button class="btn btn-sm btn-outline-light" type="submit">Unban</button>
+                                                        </form>
+                                                    </td>
+                                                </tr>
+                                                {% else %}
+                                                <tr>
+                                                    <td colspan="4" class="text-center text-muted">No IP bans configured.</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="accordion-item bg-transparent border-secondary-subtle">
+                            <h2 class="accordion-header" id="countryHeading">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#countryControls" aria-expanded="false" aria-controls="countryControls">
+                                    Block Countries
+                                </button>
+                            </h2>
+                            <div id="countryControls" class="accordion-collapse collapse" aria-labelledby="countryHeading" data-bs-parent="#accessAccordion">
+                                <div class="accordion-body">
+                                    <form method="post" class="row g-2 align-items-end mb-3">
+                                        <input type="hidden" name="action" value="ban_country">
+                                        <div class="col-md-5">
+                                            <label class="form-label" for="country-code">Country Code</label>
+                                            <input type="text" class="form-control" id="country-code" name="country-code" placeholder="US" maxlength="3" required>
+                                        </div>
+                                        <div class="col-md-5">
+                                            <label class="form-label" for="country-reason">Reason</label>
+                                            <input type="text" class="form-control" id="country-reason" name="country-reason" placeholder="Regulatory request">
+                                        </div>
+                                        <div class="col-md-2 d-grid">
+                                            <button class="btn btn-warning" type="submit">Block</button>
+                                        </div>
+                                    </form>
+                                    <div class="admin-table-wrapper">
+                                        <table class="table table-sm table-dark align-middle mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th scope="col">Country</th>
+                                                    <th scope="col">Reason</th>
+                                                    <th scope="col">Added</th>
+                                                    <th scope="col" class="text-end">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for entry in banned_countries %}
+                                                <tr>
+                                                    <td>{{ entry.country_code }}</td>
+                                                    <td>{{ entry.reason or '—' }}</td>
+                                                    <td>{{ entry.created_at.astimezone().strftime('%Y-%m-%d %H:%M') }}</td>
+                                                    <td class="text-end">
+                                                        <form method="post" class="d-inline">
+                                                            <input type="hidden" name="action" value="unban_country">
+                                                            <input type="hidden" name="entry-id" value="{{ entry.id }}">
+                                                            <button class="btn btn-sm btn-outline-light" type="submit">Unblock</button>
+                                                        </form>
+                                                    </td>
+                                                </tr>
+                                                {% else %}
+                                                <tr>
+                                                    <td colspan="4" class="text-center text-muted">No country blocks configured.</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="accordion-item bg-transparent border-secondary-subtle">
+                            <h2 class="accordion-header" id="wordHeading">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#wordControls" aria-expanded="false" aria-controls="wordControls">
+                                    Blocked Words & Phrases
+                                </button>
+                            </h2>
+                            <div id="wordControls" class="accordion-collapse collapse" aria-labelledby="wordHeading" data-bs-parent="#accessAccordion">
+                                <div class="accordion-body">
+                                    <form method="post" class="row g-2 align-items-end mb-3">
+                                        <input type="hidden" name="action" value="block_word">
+                                        <div class="col-md-10">
+                                            <label class="form-label" for="blocked-word">Word or Phrase</label>
+                                            <input type="text" class="form-control" id="blocked-word" name="blocked-word" placeholder="Offensive term" required>
+                                        </div>
+                                        <div class="col-md-2 d-grid">
+                                            <button class="btn btn-outline-info" type="submit">Add</button>
+                                        </div>
+                                    </form>
+                                    <div class="admin-table-wrapper">
+                                        <table class="table table-sm table-dark align-middle mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th scope="col">Word/Phrase</th>
+                                                    <th scope="col">Added</th>
+                                                    <th scope="col" class="text-end">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for entry in blocked_words %}
+                                                <tr>
+                                                    <td>{{ entry.word }}</td>
+                                                    <td>{{ entry.created_at.astimezone().strftime('%Y-%m-%d %H:%M') }}</td>
+                                                    <td class="text-end">
+                                                        <form method="post" class="d-inline">
+                                                            <input type="hidden" name="action" value="unblock_word">
+                                                            <input type="hidden" name="entry-id" value="{{ entry.id }}">
+                                                            <button class="btn btn-sm btn-outline-light" type="submit">Remove</button>
+                                                        </form>
+                                                    </td>
+                                                </tr>
+                                                {% else %}
+                                                <tr>
+                                                    <td colspan="3" class="text-center text-muted">No blocked words yet.</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-xl-6">
+            <div class="card admin-panel border-0 h-100">
+                <div class="card-body">
+                    <h4 class="mb-3">Community Hubs & Moderators</h4>
+                    <div class="mb-4">
+                        <h5>Hubs</h5>
+                        <form method="post" class="row g-2 align-items-end mb-3">
+                            <input type="hidden" name="action" value="create_hub">
+                            <div class="col-md-4">
+                                <label class="form-label" for="hub-name">Name</label>
+                                <input type="text" class="form-control" id="hub-name" name="hub-name" placeholder="Writers" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="hub-description">Description</label>
+                                <input type="text" class="form-control" id="hub-description" name="hub-description" placeholder="Topic focus">
+                            </div>
+                            <div class="col-md-2 d-grid">
+                                <button class="btn btn-outline-success" type="submit">Create</button>
+                            </div>
+                        </form>
+                        <div class="admin-table-wrapper">
+                            <table class="table table-sm table-dark align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Name</th>
+                                        <th scope="col">Description</th>
+                                        <th scope="col">Status</th>
+                                        <th scope="col" class="text-end">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for hub in hubs %}
+                                    <tr>
+                                        <td>{{ hub.name }}</td>
+                                        <td>{{ hub.description or '—' }}</td>
+                                        <td>
+                                            {% if hub.is_enabled %}
+                                            <span class="badge text-bg-success">Active</span>
+                                            {% else %}
+                                            <span class="badge text-bg-secondary">Disabled</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end">
+                                            <form method="post" class="d-inline">
+                                                <input type="hidden" name="action" value="toggle_hub">
+                                                <input type="hidden" name="hub-id" value="{{ hub.id }}">
+                                                <button class="btn btn-sm btn-outline-info" type="submit">Toggle</button>
+                                            </form>
+                                            <form method="post" class="d-inline ms-1">
+                                                <input type="hidden" name="action" value="delete_hub">
+                                                <input type="hidden" name="hub-id" value="{{ hub.id }}">
+                                                <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="4" class="text-center text-muted">No hubs yet. Create one to guide themed conversations.</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h5>Moderation Team</h5>
+                        <form method="post" class="row g-2 align-items-end mb-3">
+                            <input type="hidden" name="action" value="promote_moderator">
+                            <div class="col-md-8">
+                                <label class="form-label" for="moderator-user-id">Select user</label>
+                                <select id="moderator-user-id" name="moderator-user-id" class="form-select" required>
+                                    <option value="" selected disabled>Choose user…</option>
+                                    {% for user in users %}
+                                        <option value="{{ user.id }}">{{ user.username }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4 d-grid">
+                                <button class="btn btn-outline-primary" type="submit">Promote</button>
+                            </div>
+                        </form>
+                        <div class="admin-table-wrapper">
+                            <table class="table table-sm table-dark align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Moderator</th>
+                                        <th scope="col">Assigned</th>
+                                        <th scope="col" class="text-end">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for assignment in moderators %}
+                                    <tr>
+                                        <td>{{ assignment.user.username }}</td>
+                                        <td>{{ assignment.assigned_at.astimezone().strftime('%Y-%m-%d %H:%M') }}</td>
+                                        <td class="text-end">
+                                            <form method="post" class="d-inline">
+                                                <input type="hidden" name="action" value="demote_moderator">
+                                                <input type="hidden" name="entry-id" value="{{ assignment.id }}">
+                                                <button class="btn btn-sm btn-outline-light" type="submit">Remove</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="3" class="text-center text-muted">No moderators assigned.</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
