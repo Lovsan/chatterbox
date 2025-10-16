@@ -1,7 +1,8 @@
 # Description: This file contains the database models for the application.
 
 # import
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+import uuid
 from flask_sqlalchemy import SQLAlchemy
 
 
@@ -46,6 +47,9 @@ class Message(db.Model):
 
     sender = db.relationship('User', foreign_keys=[user_id], backref='sent_messages')
     recipient = db.relationship('User', foreign_keys=[recipient_id], backref='received_messages')
+    attachments = db.relationship(
+        'MessageAttachment', cascade='all, delete-orphan', backref='message'
+    )
 
 
 class Group(db.Model):
@@ -81,6 +85,9 @@ class GroupMessage(db.Model):
     timestamp = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
 
     membership = db.relationship('GroupMembership', backref='messages')
+    attachments = db.relationship(
+        'GroupMessageAttachment', cascade='all, delete-orphan', backref='group_message'
+    )
 
 
 class BannedIP(db.Model):
@@ -117,3 +124,57 @@ class ModeratorAssignment(db.Model):
     assigned_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
 
     user = db.relationship('User', backref=db.backref('moderator_assignment', uselist=False))
+
+
+class MessageAttachment(db.Model):
+    """Attachment associated with a direct message."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    message_id = db.Column(db.Integer, db.ForeignKey('message.id'), nullable=False)
+    media_type = db.Column(db.String(30), nullable=False)
+    storage_path = db.Column(db.String(500), nullable=False)
+    duration_seconds = db.Column(db.Float, nullable=True)
+    mime_type = db.Column(db.String(100), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+
+
+class GroupMessageAttachment(db.Model):
+    """Attachment associated with a group message."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    group_message_id = db.Column(
+        db.Integer, db.ForeignKey('group_message.id'), nullable=False
+    )
+    media_type = db.Column(db.String(30), nullable=False)
+    storage_path = db.Column(db.String(500), nullable=False)
+    duration_seconds = db.Column(db.Float, nullable=True)
+    mime_type = db.Column(db.String(100), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+
+
+class MediaUploadToken(db.Model):
+    """Temporary upload record awaiting attachment assignment."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    token = db.Column(db.String(64), unique=True, nullable=False, default=lambda: uuid.uuid4().hex)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    storage_path = db.Column(db.String(500), nullable=False)
+    media_type = db.Column(db.String(30), nullable=False)
+    mime_type = db.Column(db.String(100), nullable=True)
+    duration_seconds = db.Column(db.Float, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+    consumed_at = db.Column(db.DateTime, nullable=True)
+
+    user = db.relationship('User', backref='pending_uploads')
+
+    @property
+    def is_consumed(self) -> bool:
+        return self.consumed_at is not None
+
+    @property
+    def is_expired(self) -> bool:
+        expiration = self.created_at + timedelta(hours=1)
+        return datetime.now(timezone.utc) > expiration
+
+    def mark_consumed(self) -> None:
+        self.consumed_at = datetime.now(timezone.utc)

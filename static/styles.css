@@ -46,6 +46,89 @@ main {
     padding: 1rem;
 }
 
+.chat-message {
+    background: rgba(15, 23, 42, 0.55);
+    border-radius: 0.75rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.chat-message-header {
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.chat-message-body {
+    margin-top: 0.4rem;
+    font-size: 0.95rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.chat-attachments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+}
+
+.chat-media-card {
+    background: rgba(15, 23, 42, 0.7);
+    border-radius: 0.75rem;
+    padding: 0.75rem;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    max-width: 280px;
+    box-shadow: 0 0.5rem 1.25rem rgba(15, 23, 42, 0.35);
+}
+
+.chat-media {
+    display: block;
+    width: 100%;
+    border-radius: 0.5rem;
+}
+
+.chat-media-image {
+    object-fit: cover;
+    max-height: 220px;
+}
+
+.chat-media-meta {
+    margin-top: 0.5rem;
+}
+
+.chat-composer {
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 0.75rem;
+    padding: 0.75rem 1rem;
+}
+
+.chat-composer .btn-group .btn {
+    min-width: 110px;
+}
+
+.chat-composer .btn-link {
+    text-decoration: none;
+}
+
+.attachment-preview {
+    border-radius: 0.5rem;
+    border: 1px dashed rgba(148, 163, 184, 0.4);
+    padding: 0.5rem;
+    margin-bottom: 0.75rem;
+    background: rgba(15, 23, 42, 0.35);
+}
+
+.attachment-preview video,
+.attachment-preview audio,
+.attachment-preview img {
+    max-height: 200px;
+}
+
+#message-form.is-uploading {
+    opacity: 0.8;
+}
+
 #user-list,
 #group-list {
     max-height: 40vh;

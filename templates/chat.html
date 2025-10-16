@@ -94,11 +94,41 @@
                 </div>
                 <div id="chat-box" class="chat-box flex-grow-1">
                     {% for message in messages %}
-                    <div class="mb-2" title="{{ message.timestamp.strftime('%d.%m.%Y, %H:%M:%S') }}">
-                        <strong class="{{ 'text-primary' if message.user_id == session['user_id'] else 'text-secondary' }}">
-                            {{ 'You' if message.user_id == session['user_id'] else message.sender.username }}:
-                        </strong>
-                        {{ message.text }}
+                    <div class="chat-message mb-3" title="{{ message.timestamp.strftime('%d.%m.%Y, %H:%M:%S') }}">
+                        <div class="chat-message-header">
+                            <strong class="{{ 'text-primary' if message.user_id == session['user_id'] else 'text-secondary' }}">
+                                {{ 'You' if message.user_id == session['user_id'] else message.sender.username }}:
+                            </strong>
+                        </div>
+                        {% if message.text %}
+                        <div class="chat-message-body">{{ message.text }}</div>
+                        {% endif %}
+                        {% if message.attachments %}
+                        <div class="chat-attachments">
+                            {% for attachment in message.attachments %}
+                            <div class="chat-media-card">
+                                {% if attachment.media_type == 'image' %}
+                                <img src="{{ url_for('serve_upload', filename=attachment.storage_path) }}" alt="Shared image" class="chat-media chat-media-image">
+                                {% elif attachment.media_type == 'audio' %}
+                                <audio controls class="chat-media" preload="none">
+                                    <source src="{{ url_for('serve_upload', filename=attachment.storage_path) }}" type="{{ attachment.mime_type or 'audio/mpeg' }}">
+                                    Your browser does not support the audio element.
+                                </audio>
+                                {% elif attachment.media_type == 'video' %}
+                                <video controls class="chat-media" preload="metadata">
+                                    <source src="{{ url_for('serve_upload', filename=attachment.storage_path) }}" type="{{ attachment.mime_type or 'video/mp4' }}">
+                                    Your browser does not support the video element.
+                                </video>
+                                {% else %}
+                                <a href="{{ url_for('serve_upload', filename=attachment.storage_path) }}" target="_blank" rel="noopener">Download attachment</a>
+                                {% endif %}
+                                {% if attachment.duration_seconds %}
+                                <div class="chat-media-meta small text-muted">{{ attachment.duration_seconds|round(1) }}s</div>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
                     </div>
                     {% endfor %}
                 </div>
@@ -109,8 +139,20 @@
                       data-chat-type="direct"
                       data-username="{{ session['username'] }}"
                       data-recipient="{{ recipient.username }}">
+                    <div class="chat-composer mb-2">
+                        <div id="attachment-preview" class="attachment-preview d-none"></div>
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <div class="btn-group" role="group" aria-label="Add media">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="attachment-upload-btn">Upload</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="voice-record-btn">Voice Clip</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="video-record-btn">Video Clip</button>
+                            </div>
+                            <button type="button" class="btn btn-link text-danger btn-sm d-none" id="attachment-clear-btn">Clear</button>
+                        </div>
+                        <input type="file" id="attachment-file-input" accept="image/*,audio/*,video/*" class="d-none">
+                    </div>
                     <div class="input-group">
-                        <input id="message-input" type="text" name="message" class="form-control" placeholder="Type your message..." required>
+                        <input id="message-input" type="text" name="message" class="form-control" placeholder="Type your message...">
                         <button type="submit" class="btn btn-primary">Send</button>
                     </div>
                 </form>
@@ -134,11 +176,41 @@
                 {% endif %}
                 <div id="chat-box" class="chat-box flex-grow-1">
                     {% for message in group_messages %}
-                    <div class="mb-2" title="{{ message.timestamp.strftime('%d.%m.%Y, %H:%M:%S') }}">
-                        <strong class="{{ 'text-primary' if message.membership.user_id == session['user_id'] else 'text-secondary' }}">
-                            {{ 'You' if message.membership.user_id == session['user_id'] else message.alias }}:
-                        </strong>
-                        {{ message.text }}
+                    <div class="chat-message mb-3" title="{{ message.timestamp.strftime('%d.%m.%Y, %H:%M:%S') }}">
+                        <div class="chat-message-header">
+                            <strong class="{{ 'text-primary' if message.membership.user_id == session['user_id'] else 'text-secondary' }}">
+                                {{ 'You' if message.membership.user_id == session['user_id'] else message.alias }}:
+                            </strong>
+                        </div>
+                        {% if message.text %}
+                        <div class="chat-message-body">{{ message.text }}</div>
+                        {% endif %}
+                        {% if message.attachments %}
+                        <div class="chat-attachments">
+                            {% for attachment in message.attachments %}
+                            <div class="chat-media-card">
+                                {% if attachment.media_type == 'image' %}
+                                <img src="{{ url_for('serve_upload', filename=attachment.storage_path) }}" alt="Shared image" class="chat-media chat-media-image">
+                                {% elif attachment.media_type == 'audio' %}
+                                <audio controls class="chat-media" preload="none">
+                                    <source src="{{ url_for('serve_upload', filename=attachment.storage_path) }}" type="{{ attachment.mime_type or 'audio/mpeg' }}">
+                                    Your browser does not support the audio element.
+                                </audio>
+                                {% elif attachment.media_type == 'video' %}
+                                <video controls class="chat-media" preload="metadata">
+                                    <source src="{{ url_for('serve_upload', filename=attachment.storage_path) }}" type="{{ attachment.mime_type or 'video/mp4' }}">
+                                    Your browser does not support the video element.
+                                </video>
+                                {% else %}
+                                <a href="{{ url_for('serve_upload', filename=attachment.storage_path) }}" target="_blank" rel="noopener">Download attachment</a>
+                                {% endif %}
+                                {% if attachment.duration_seconds %}
+                                <div class="chat-media-meta small text-muted">{{ attachment.duration_seconds|round(1) }}s</div>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
                     </div>
                     {% endfor %}
                 </div>
@@ -149,8 +221,20 @@
                       data-chat-type="group"
                       data-group-id="{{ group.id }}"
                       data-alias="{{ membership.alias }}">
+                    <div class="chat-composer mb-2">
+                        <div id="attachment-preview" class="attachment-preview d-none"></div>
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <div class="btn-group" role="group" aria-label="Add media">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="attachment-upload-btn">Upload</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="voice-record-btn">Voice Clip</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="video-record-btn">Video Clip</button>
+                            </div>
+                            <button type="button" class="btn btn-link text-danger btn-sm d-none" id="attachment-clear-btn">Clear</button>
+                        </div>
+                        <input type="file" id="attachment-file-input" accept="image/*,audio/*,video/*" class="d-none">
+                    </div>
                     <div class="input-group">
-                        <input id="message-input" type="text" name="message" class="form-control" placeholder="Type your message..." required>
+                        <input id="message-input" type="text" name="message" class="form-control" placeholder="Type your message...">
                         <button type="submit" class="btn btn-primary">Send</button>
                     </div>
                 </form>
