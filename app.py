@@ -172,31 +172,14 @@ def chat():
         - Renders the chat page with messages and recipient details.
     """
 
-    # get recipient
     recipient_id = request.args.get("recipient_id", type=int)
     recipient = User.query.get(recipient_id) if recipient_id else None
 
-    # get recent messages
-    messages = []
-    if recipient:
-        messages = Message.query.filter(
-            ((Message.user_id == session["user_id"]) & (Message.recipient_id == recipient_id)) |
-            ((Message.user_id == recipient_id) & (Message.recipient_id == session["user_id"]))
-        ).order_by(Message.timestamp.asc()).all()
-
-
-    # NEW MESSAGES ARE NOW HANDLED BY THE WEBSOCKET
-    # NEW MESSAGES ARE NOW HANDLED BY THE WEBSOCKET
-    # NEW MESSAGES ARE NOW HANDLED BY THE WEBSOCKET
-
-
-    # return chat page
     return render_template(
         "chat.html",
-        messages=messages,
         recipient=recipient,
         recipient_id=recipient_id
-        )
+    )
 
 
 @app.route("/chat/start", methods=["POST"])
@@ -207,26 +190,44 @@ def chat_start():
     Login required.
     """
 
-    # get recipient username
-    username = request.form.get("username").strip()
+    payload = request.get_json(silent=True)
+    if payload:
+        username = (payload.get("username") or "").strip()
+    else:
+        username = (request.form.get("username") or "").strip()
 
-    # check if username is provided
     if not username:
-        flash("Recipient username is required!")
+        message = "Recipient username is required!"
+        if payload is not None:
+            return jsonify({"message": message}), 400
+        flash(message)
         return redirect(url_for("chat"))
-    
-    # check if recipient is not the current user
+
     if username == session["username"]:
-        flash("You cannot start a chat with yourself!")
+        message = "You cannot start a chat with yourself!"
+        if payload is not None:
+            return jsonify({"message": message}), 400
+        flash(message)
         return redirect(url_for("chat"))
-    
-    # check if recipient exists
+
     recipient = User.query.filter_by(username=username).first()
     if not recipient:
-        flash("User not found!")
+        message = "User not found!"
+        if payload is not None:
+            return jsonify({"message": message}), 404
+        flash(message)
         return redirect(url_for("chat"))
-    
-    # redirect to chat with recipient
+
+    if payload is not None:
+        return jsonify({
+            "conversation": {
+                "id": recipient.id,
+                "name": recipient.username,
+                "display_name": recipient.username,
+                "type": "direct"
+            }
+        }), 201
+
     return redirect(url_for("chat", recipient_id=recipient.id))
 
 
@@ -253,9 +254,86 @@ def user_list():
 
     # Create a list of dictionaries containing user id and username
     users = [{'id': user.id, 'username': user.username} for user, _ in recent_users]
-    
+
     # Return the list of users as a JSON response
     return jsonify({'users': users})
+
+
+@app.route("/chat/open-conversations")
+@login_required
+def open_conversations():
+    """Return a list of conversations for the tab bar."""
+
+    current_user_id = session["user_id"]
+
+    messages = Message.query.filter(
+        (Message.user_id == current_user_id) | (Message.recipient_id == current_user_id)
+    ).order_by(Message.timestamp.desc()).all()
+
+    conversations = {}
+    user_cache = {}
+    for message in messages:
+        other_id = message.recipient_id if message.user_id == current_user_id else message.user_id
+        if other_id in conversations:
+            continue
+        other_user = message.recipient if message.user_id == current_user_id else message.sender
+        if other_user is None:
+            other_user = user_cache.get(other_id)
+            if other_user is None:
+                other_user = User.query.get(other_id)
+                user_cache[other_id] = other_user
+        if not other_user:
+            continue
+        conversations[other_id] = {
+            "id": other_user.id,
+            "name": other_user.username,
+            "display_name": other_user.username,
+            "type": "direct",
+            "last_message": message.text,
+            "last_timestamp": message.timestamp.isoformat() if message.timestamp else None
+        }
+
+    return jsonify({"conversations": list(conversations.values())})
+
+
+@app.route("/chat/conversation/<int:partner_id>/messages")
+@login_required
+def conversation_messages(partner_id):
+    """Return the message history for a conversation."""
+
+    current_user_id = session["user_id"]
+    partner = User.query.get_or_404(partner_id)
+
+    messages = Message.query.filter(
+        ((Message.user_id == current_user_id) & (Message.recipient_id == partner_id)) |
+        ((Message.user_id == partner_id) & (Message.recipient_id == current_user_id))
+    ).order_by(Message.timestamp.asc()).all()
+
+    serialized = []
+    for message in messages:
+        serialized.append({
+            "id": message.id,
+            "text": message.text,
+            "timestamp": message.timestamp.isoformat() if message.timestamp else None,
+            "sender": {
+                "id": message.user_id,
+                "username": message.sender.username if message.sender else None
+            },
+            "recipient": {
+                "id": message.recipient_id,
+                "username": message.recipient.username if message.recipient else None
+            }
+        })
+
+    return jsonify({
+        "conversation": {
+            "id": partner.id,
+            "name": partner.username,
+            "display_name": partner.username,
+            "type": "direct"
+        },
+        "messages": serialized
+    })
 
 
 # verify async mode

@@ -96,8 +96,13 @@ def register_event_handlers(socketio, app):
         # Emit the "receive_message" event to the intended recipient and sender
         recipient_room = f"user_{recipient_db.id}"
         sender_room = f"user_{session['user_id']}"
-        emit("receive_message", data, room=recipient_room)
-        emit("receive_message", data, room=sender_room)
+        enriched_payload = dict(data)
+        enriched_payload["timestamp"] = new_message.timestamp.isoformat() if new_message.timestamp else None
+        enriched_payload["recipient_id"] = recipient_db.id
+        enriched_payload["sender_id"] = session["user_id"]
+
+        emit("receive_message", enriched_payload, room=recipient_room)
+        emit("receive_message", enriched_payload, room=sender_room)
 
 
     @socketio.on("connect")

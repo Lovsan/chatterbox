@@ -1,49 +1,58 @@
 // This script handles the WebSocket communication between the client and the server
 
-// Ensure that the document is fully loaded before running the script
-document.addEventListener("DOMContentLoaded", function() {
-    // Initialize SocketIO
-    const socket = io();
-
-    // Get the message form element
-    const messageForm = document.getElementById("message-form");
-
-    // Check if the message form exists
-    if (messageForm) {
-        // Add an event listener for the form submission
-        messageForm.addEventListener("submit", function(event) {
-            // Prevent the default form submission behavior
-            event.preventDefault();
-            
-            // Get the message input element and its value
-            const messageInput = document.getElementById("message-input");
-            const message = messageInput.value.trim();
-            
-            // Check if the message is not empty
-            if (message) {
-                // Emit the "send_message" event with the message data
-                socket.emit("send_message", {
-                    username: messageForm.dataset.username, // Sender's username
-                    recipient: messageForm.dataset.recipient, // Recipient's username
-                    message: message // Message text
-                });
-                
-                // Clear the message input field
-                messageInput.value = "";
-            }
-        });
+document.addEventListener("DOMContentLoaded", () => {
+    const chatApp = document.getElementById("chat-app");
+    if (!chatApp || !window.chatTabs) {
+        return;
     }
 
-    // Handle receiving messages
-    socket.on("receive_message", function(data) {
-        // Get the current username from the form's data attributes
-        const currentUsername = messageForm.dataset.username;
+    const socket = io();
+    const currentUsername = window.chatTabs.getCurrentUser();
 
-        // Check if the received message is for the current chat
-        if ((data.recipient === currentUsername && data.username === messageForm.dataset.recipient) ||
-            (data.username === currentUsername && data.recipient === messageForm.dataset.recipient)) {
-            // Use the appendMessage function to create and append the message element
-            appendMessage(data.username, currentUsername, data.message);
+    document.addEventListener("submit", event => {
+        const form = event.target;
+        if (!form.classList.contains("message-form")) {
+            return;
         }
+
+        event.preventDefault();
+        const input = form.querySelector("input[name='message']");
+        const message = input ? input.value.trim() : "";
+        if (!message) {
+            return;
+        }
+
+        socket.emit("send_message", {
+            username: form.dataset.username,
+            recipient: form.dataset.recipient,
+            message
+        });
+
+        input.value = "";
+    });
+
+    socket.on("receive_message", data => {
+        const chatTabs = window.chatTabs;
+        if (!chatTabs) {
+            return;
+        }
+
+        const isSender = data.username === currentUsername;
+        const otherParticipantId = isSender ? data.recipient_id : data.sender_id;
+        const otherParticipantUsername = isSender ? data.recipient : data.username;
+        const key = chatTabs.getDirectConversationKey(otherParticipantId);
+
+        chatTabs.ensureConversation({
+            id: otherParticipantId,
+            name: otherParticipantUsername,
+            display_name: otherParticipantUsername,
+            type: "direct"
+        }, { activate: false });
+
+        chatTabs.appendMessage(key, {
+            username: data.username,
+            message: data.message,
+            timestamp: data.timestamp
+        });
     });
 });
