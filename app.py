@@ -21,6 +21,7 @@ from sqlalchemy import func, inspect, text
 from sqlalchemy.exc import OperationalError
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from call_sessions import CallSessionManager
 from event_handlers import register_event_handlers
 from helpers import admin_required, login_required, logout_required
 from models import (
@@ -35,6 +36,7 @@ from models import (
     Message,
     ModeratorAssignment,
     User,
+    CallSession,
 )
 
 
@@ -55,7 +57,8 @@ Session(app)
 
 # initialize SocketIO
 socketio = SocketIO(app)
-register_event_handlers(socketio, app)
+call_manager = CallSessionManager()
+register_event_handlers(socketio, app, call_manager)
 
 
 def generate_group_code(length: int = 8) -> str:
@@ -143,6 +146,10 @@ def ensure_schema() -> None:
         if "is_admin" not in user_columns:
             alter_statements.append(
                 "ALTER TABLE user ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0"
+            )
+        if "is_blocked" not in user_columns:
+            alter_statements.append(
+                "ALTER TABLE user ADD COLUMN is_blocked BOOLEAN NOT NULL DEFAULT 0"
             )
 
         for statement in alter_statements:
@@ -767,6 +774,29 @@ def admin_dashboard():
                     db.session.delete(assignment)
                     db.session.commit()
                     flash("Moderator removed.")
+            elif action == "terminate_call":
+                session_id = parse_int(request.form.get("session-id"))
+                call_session = CallSession.query.get(session_id)
+                if call_session:
+                    moderator_user = User.query.get(session["user_id"]) if session.get("user_id") else None
+                    call_manager.end_call(call_session, moderator_user, moderator=True)
+                    socketio.emit(
+                        "call_ended",
+                        {
+                            "sessionId": call_session.id,
+                            "roomId": call_session.room_id,
+                            "endedBy": moderator_user.username if moderator_user else "Moderator",
+                        },
+                        room=call_session.room_id,
+                    )
+                    flash("Call terminated.")
+            elif action == "toggle_call_block":
+                user_id = parse_int(request.form.get("target-user-id"))
+                target = User.query.get(user_id)
+                if target:
+                    call_manager.set_user_blocked(target, not target.is_blocked)
+                    status = "blocked" if target.is_blocked else "unblocked"
+                    flash(f"{target.username} {status} for calls.")
         except Exception as error:  # pragma: no cover
             db.session.rollback()
             flash(f"Action failed: {error}")
@@ -779,6 +809,14 @@ def admin_dashboard():
     blocked_words = BlockedWord.query.order_by(BlockedWord.created_at.desc()).all()
     hubs = CommunicationHub.query.order_by(CommunicationHub.created_at.desc()).all()
     moderators = ModeratorAssignment.query.order_by(ModeratorAssignment.assigned_at.desc()).all()
+    live_calls = (
+        call_manager.get_active_sessions()
+        .order_by(CallSession.started_at.desc())
+        .all()
+    )
+    call_history = (
+        CallSession.query.order_by(CallSession.started_at.desc()).limit(20).all()
+    )
 
     return render_template(
         "admin/dashboard.html",
@@ -788,7 +826,95 @@ def admin_dashboard():
         blocked_words=blocked_words,
         hubs=hubs,
         moderators=moderators,
+        live_calls=live_calls,
+        call_history=call_history,
     )
+
+
+def serialize_call_session(entry: CallSession) -> dict:
+    """Return a JSON-serializable representation of a call session."""
+
+    return {
+        "id": entry.id,
+        "roomId": entry.room_id,
+        "caller": entry.caller.username if entry.caller else None,
+        "callee": entry.callee.username if entry.callee else None,
+        "status": entry.status,
+        "startedAt": entry.started_at.isoformat() if entry.started_at else None,
+        "acceptedAt": entry.accepted_at.isoformat() if entry.accepted_at else None,
+        "endedAt": entry.ended_at.isoformat() if entry.ended_at else None,
+        "endedBy": entry.ended_by.username if entry.ended_by else None,
+        "terminatedByModerator": entry.terminated_by_moderator,
+        "notes": entry.notes,
+    }
+
+
+@app.route("/api/calls/history", methods=["GET", "POST"])
+@admin_required
+def api_call_history():
+    """Return or update call history entries."""
+
+    if request.method == "POST":
+        data = request.get_json(silent=True) or {}
+        session_id = data.get("sessionId")
+        if not session_id:
+            return jsonify({"error": "sessionId is required"}), 400
+        call_session = CallSession.query.get_or_404(session_id)
+        notes = (data.get("notes") or "").strip() or None
+        if notes is not None:
+            call_manager.mark_notes(call_session, notes)
+        return jsonify({"call": serialize_call_session(call_session)})
+
+    limit = request.args.get("limit", default=50, type=int)
+    entries = (
+        CallSession.query.order_by(CallSession.started_at.desc()).limit(limit).all()
+    )
+    return jsonify({"calls": [serialize_call_session(entry) for entry in entries]})
+
+
+@app.route("/api/calls/live", methods=["GET"])
+@admin_required
+def api_live_calls():
+    """Return currently active call sessions."""
+
+    entries = (
+        call_manager.get_active_sessions()
+        .order_by(CallSession.started_at.desc())
+        .all()
+    )
+    return jsonify({"calls": [serialize_call_session(entry) for entry in entries]})
+
+
+@app.route("/api/calls/<int:session_id>/terminate", methods=["POST"])
+@admin_required
+def api_terminate_call(session_id: int):
+    """Allow moderators to terminate a live call."""
+
+    call_session = CallSession.query.get_or_404(session_id)
+    moderator_user = User.query.get(session["user_id"]) if session.get("user_id") else None
+    call_manager.end_call(call_session, moderator_user, moderator=True)
+    socketio.emit(
+        "call_ended",
+        {
+            "sessionId": call_session.id,
+            "roomId": call_session.room_id,
+            "endedBy": moderator_user.username if moderator_user else "Moderator",
+        },
+        room=call_session.room_id,
+    )
+    return jsonify({"call": serialize_call_session(call_session)})
+
+
+@app.route("/api/users/<int:user_id>/call-access", methods=["PATCH"])
+@admin_required
+def api_update_call_access(user_id: int):
+    """Toggle whether a user is allowed to place calls."""
+
+    user = User.query.get_or_404(user_id)
+    data = request.get_json(silent=True) or {}
+    blocked = bool(data.get("blocked"))
+    call_manager.set_user_blocked(user, blocked)
+    return jsonify({"userId": user.id, "blocked": user.is_blocked})
 
 
 # verify async mode

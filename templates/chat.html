@@ -92,6 +92,33 @@
                         <span class="badge text-bg-warning text-dark" id="progress-badge">{{ current_user_profile.badge if current_user_profile else 'Newcomer' }}</span>
                     </div>
                 </div>
+                <div class="call-toolbar mb-3">
+                    <div class="btn-group" role="group" aria-label="Call controls">
+                        <button type="button"
+                                class="btn btn-outline-success call-action"
+                                id="call-start-btn"
+                                data-recipient="{{ recipient.username }}">
+                            Call
+                        </button>
+                        <button type="button"
+                                class="btn btn-outline-primary call-action d-none"
+                                id="call-accept-btn">
+                            Accept
+                        </button>
+                        <button type="button"
+                                class="btn btn-outline-danger call-action d-none"
+                                id="call-hangup-btn">
+                            Hang Up
+                        </button>
+                    </div>
+                    <div class="call-status-banner" id="call-status-banner" hidden></div>
+                </div>
+                <div class="call-video-wrapper d-none" id="call-video-container">
+                    <div class="call-video-grid">
+                        <video id="local-video" autoplay muted playsinline class="call-video"></video>
+                        <video id="remote-video" autoplay playsinline class="call-video"></video>
+                    </div>
+                </div>
                 <div id="chat-box" class="chat-box flex-grow-1">
                     {% for message in messages %}
                     <div class="mb-2" title="{{ message.timestamp.strftime('%d.%m.%Y, %H:%M:%S') }}">
@@ -165,6 +192,38 @@
                 <p class="lead">Select a direct message or hidden group to begin chatting.</p>
             </div>
             {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="incomingCallModal" tabindex="-1" aria-labelledby="incomingCallLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="incomingCallLabel">Incoming Call</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">You have an incoming call from <strong id="incoming-call-from"></strong>.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" id="incoming-call-decline" data-bs-dismiss="modal">Decline</button>
+                <button type="button" class="btn btn-primary" id="incoming-call-accept">Accept</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="callStatusModal" tabindex="-1" aria-labelledby="callStatusLabel" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="callStatusLabel">Call status</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0" id="call-status-message">Connecting…</p>
+            </div>
         </div>
     </div>
 </div>

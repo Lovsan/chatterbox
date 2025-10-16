@@ -168,3 +168,56 @@ body.locked {
     max-height: 320px;
     overflow-y: auto;
 }
+
+.call-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+}
+
+.call-toolbar .btn-group {
+    flex-wrap: wrap;
+}
+
+.call-toolbar .btn {
+    min-width: 120px;
+}
+
+.call-status-banner {
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    background: rgba(59, 130, 246, 0.15);
+    color: #dbeafe;
+}
+
+.call-video-wrapper {
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 0.75rem;
+    padding: 1rem;
+}
+
+.call-video-grid {
+    display: grid;
+    gap: 1rem;
+}
+
+@media (min-width: 768px) {
+    .call-video-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+.call-video {
+    width: 100%;
+    background: rgba(30, 41, 59, 0.8);
+    border-radius: 0.75rem;
+    min-height: 180px;
+    object-fit: cover;
+}
+
+.modal .modal-body p {
+    font-size: 0.95rem;
+}

@@ -42,6 +42,134 @@
             </div>
         </div>
 
+        <div class="col-12">
+            <div class="card admin-panel border-0">
+                <div class="card-body">
+                    <h4 class="mb-3">Call Oversight</h4>
+                    <form method="post" class="row g-2 align-items-end mb-4">
+                        <input type="hidden" name="action" value="toggle_call_block">
+                        <div class="col-md-6">
+                            <label class="form-label" for="call-access-user">Toggle call access</label>
+                            <select id="call-access-user" name="target-user-id" class="form-select" required>
+                                <option value="" selected disabled>Choose user…</option>
+                                {% for user in users %}
+                                    <option value="{{ user.id }}">{{ user.username }}{% if user.is_blocked %} (Blocked){% endif %}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Current status</label>
+                            <div class="form-control-plaintext fw-semibold">Updates after submission</div>
+                        </div>
+                        <div class="col-md-3 d-grid">
+                            <button class="btn btn-outline-light" type="submit">Toggle Call Access</button>
+                        </div>
+                    </form>
+
+                    <div class="row g-4">
+                        <div class="col-12 col-lg-6">
+                            <h5 class="mb-3">Live Sessions</h5>
+                            <div class="admin-table-wrapper">
+                                <table class="table table-sm table-dark align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">Caller</th>
+                                            <th scope="col">Callee</th>
+                                            <th scope="col">Started</th>
+                                            <th scope="col">Status</th>
+                                            <th scope="col" class="text-end">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for call in live_calls %}
+                                        <tr>
+                                            <td>{{ call.caller.username if call.caller else '—' }}</td>
+                                            <td>{{ call.callee.username if call.callee else '—' }}</td>
+                                            <td>{{ call.started_at.astimezone().strftime('%Y-%m-%d %H:%M') }}</td>
+                                            <td>
+                                                {% if call.status == 'active' %}
+                                                    <span class="badge text-bg-success">Active</span>
+                                                {% elif call.status == 'ringing' %}
+                                                    <span class="badge text-bg-warning text-dark">Ringing</span>
+                                                {% else %}
+                                                    <span class="badge text-bg-secondary">{{ call.status }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-end">
+                                                <form method="post" class="d-inline">
+                                                    <input type="hidden" name="action" value="terminate_call">
+                                                    <input type="hidden" name="session-id" value="{{ call.id }}">
+                                                    <button class="btn btn-sm btn-outline-danger" type="submit">Terminate</button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                        {% else %}
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted">No live calls currently.</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6">
+                            <h5 class="mb-3">Recent Call History</h5>
+                            <div class="admin-table-wrapper">
+                                <table class="table table-sm table-dark align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">Caller</th>
+                                            <th scope="col">Callee</th>
+                                            <th scope="col">Ended</th>
+                                            <th scope="col">Status</th>
+                                            <th scope="col">Moderator</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for call in call_history %}
+                                        <tr>
+                                            <td>{{ call.caller.username if call.caller else '—' }}</td>
+                                            <td>{{ call.callee.username if call.callee else '—' }}</td>
+                                            <td>
+                                                {% if call.ended_at %}
+                                                    {{ call.ended_at.astimezone().strftime('%Y-%m-%d %H:%M') }}
+                                                {% else %}
+                                                    —
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if call.status == 'ended' %}
+                                                    <span class="badge text-bg-secondary">Ended</span>
+                                                {% elif call.status == 'declined' %}
+                                                    <span class="badge text-bg-warning text-dark">Declined</span>
+                                                {% else %}
+                                                    <span class="badge text-bg-info">{{ call.status|capitalize }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if call.terminated_by_moderator %}
+                                                    <span class="badge text-bg-danger">Moderator</span>
+                                                {% elif call.ended_by %}
+                                                    {{ call.ended_by.username }}
+                                                {% else %}
+                                                    —
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% else %}
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted">No calls recorded yet.</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="col-12 col-xl-6">
             <div class="card admin-panel border-0 h-100">
                 <div class="card-body">

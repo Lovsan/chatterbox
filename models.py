@@ -28,6 +28,7 @@ class User(db.Model):
     last_arrival_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
     pin_hash = db.Column(db.String(200), nullable=True)
     is_admin = db.Column(db.Boolean, nullable=False, default=False)
+    is_blocked = db.Column(db.Boolean, nullable=False, default=False)
 
     @property
     def has_pin(self) -> bool:
@@ -117,3 +118,21 @@ class ModeratorAssignment(db.Model):
     assigned_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
 
     user = db.relationship('User', backref=db.backref('moderator_assignment', uselist=False))
+
+
+class CallSession(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    room_id = db.Column(db.String(64), unique=True, nullable=False)
+    caller_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    callee_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    status = db.Column(db.String(20), nullable=False, default="ringing")
+    started_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+    accepted_at = db.Column(db.DateTime, nullable=True)
+    ended_at = db.Column(db.DateTime, nullable=True)
+    ended_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    terminated_by_moderator = db.Column(db.Boolean, nullable=False, default=False)
+    notes = db.Column(db.String(255), nullable=True)
+
+    caller = db.relationship('User', foreign_keys=[caller_id], backref='outgoing_calls')
+    callee = db.relationship('User', foreign_keys=[callee_id], backref='incoming_calls')
+    ended_by = db.relationship('User', foreign_keys=[ended_by_id])
