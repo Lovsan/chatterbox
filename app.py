@@ -43,6 +43,7 @@ from models import (
     Message,
     MessageAttachment,
     ModeratorAssignment,
+    TranslatedTranscript,
     User,
 )
 
@@ -564,6 +565,8 @@ def chat():
     group = None
     membership = None
     group_messages = []
+    translated_captions = []
+    call_identifier = None
     active_hubs = CommunicationHub.query.filter_by(is_enabled=True).order_by(CommunicationHub.name.asc()).all()
 
     if recipient_id:
@@ -577,6 +580,14 @@ def chat():
                 | ((Message.user_id == recipient_id) & (Message.recipient_id == session["user_id"]))
             )
             .order_by(Message.timestamp.asc())
+            .all()
+        )
+        participants = sorted([session["user_id"], recipient_id])
+        call_identifier = f"direct-{participants[0]}-{participants[1]}"
+        translated_captions = (
+            TranslatedTranscript.query.filter_by(call_id=call_identifier)
+            .order_by(TranslatedTranscript.created_at.asc())
+            .limit(200)
             .all()
         )
 
@@ -599,6 +610,13 @@ def chat():
             .order_by(GroupMessage.timestamp.asc())
             .all()
         )
+        call_identifier = f"group-{group_id}"
+        translated_captions = (
+            TranslatedTranscript.query.filter_by(call_id=call_identifier)
+            .order_by(TranslatedTranscript.created_at.asc())
+            .limit(200)
+            .all()
+        )
 
     return render_template(
         "chat.html",
@@ -609,6 +627,8 @@ def chat():
         group_messages=group_messages,
         membership=membership,
         hubs=active_hubs,
+        translated_captions=translated_captions,
+        call_identifier=call_identifier,
     )
 
 

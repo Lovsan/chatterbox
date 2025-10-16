@@ -84,12 +84,75 @@
         <!-- Right column: chat window -->
         <div class="col-12 col-lg-8 col-xl-9">
             {% if recipient %}
+            {% set call_participants = [session['user_id'], recipient.id]|sort %}
+            {% set call_id = 'direct-' ~ call_participants[0] ~ '-' ~ call_participants[1] %}
             <div class="d-flex flex-column h-100">
                 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                     <h5 class="mb-0">Chat with {{ recipient.username }}</h5>
                     <div class="progress-info text-end">
                         <span class="badge text-bg-info" id="progress-level">Level {{ current_user_profile.level if current_user_profile else 1 }}</span>
                         <span class="badge text-bg-warning text-dark" id="progress-badge">{{ current_user_profile.badge if current_user_profile else 'Newcomer' }}</span>
+                    </div>
+                </div>
+                <div class="card shadow-sm mb-3">
+                    <div class="card-body">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                            <div>
+                                <h6 class="mb-1">Live Translation</h6>
+                                <p class="mb-0 text-muted small">Stream live captions and translated transcripts for everyone on the call.</p>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" id="translation-toggle" data-call-id="{{ call_id }}">
+                                <label class="form-check-label" for="translation-toggle">Enable</label>
+                            </div>
+                        </div>
+                        <div class="row g-2 align-items-end mt-3">
+                            <div class="col-sm-6 col-md-4">
+                                <label class="form-label small mb-1" for="translation-language">Caption language</label>
+                                <select id="translation-language" class="form-select form-select-sm">
+                                    <option value="en">English</option>
+                                    <option value="es">Spanish</option>
+                                    <option value="fr">French</option>
+                                    <option value="de">German</option>
+                                    <option value="pt">Portuguese</option>
+                                    <option value="hi">Hindi</option>
+                                    <option value="ja">Japanese</option>
+                                    <option value="zh">Chinese</option>
+                                </select>
+                            </div>
+                            <div class="col-sm-6 col-md-4">
+                                <label class="form-label small mb-1" for="translation-source-language">Spoken language</label>
+                                <select id="translation-source-language" class="form-select form-select-sm">
+                                    <option value="en-US">English (US)</option>
+                                    <option value="en-GB">English (UK)</option>
+                                    <option value="es-ES">Spanish</option>
+                                    <option value="fr-FR">French</option>
+                                    <option value="de-DE">German</option>
+                                    <option value="pt-BR">Portuguese</option>
+                                    <option value="hi-IN">Hindi</option>
+                                    <option value="ja-JP">Japanese</option>
+                                    <option value="zh">Chinese</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="mb-0 small text-uppercase text-muted">Live captions</h6>
+                                <small class="text-muted">Only participants who enable translation will stream audio.</small>
+                            </div>
+                            <div id="translated-captions" class="border rounded p-3 bg-body-tertiary" style="max-height: 200px; overflow-y: auto;">
+                                {% if translated_captions %}
+                                    {% for caption in translated_captions %}
+                                    <div class="caption-line mb-1 small" data-language="{{ caption.target_language.lower() }}">
+                                        <span class="badge bg-secondary me-2">{{ caption.target_language.upper() }}</span>
+                                        {{ caption.translated_text }}
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <div class="text-muted small" data-caption-placeholder="true">Live captions will appear here once translation is enabled.</div>
+                                {% endif %}
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div id="chat-box" class="chat-box flex-grow-1">
@@ -138,7 +201,8 @@
                       class="mt-3"
                       data-chat-type="direct"
                       data-username="{{ session['username'] }}"
-                      data-recipient="{{ recipient.username }}">
+                      data-recipient="{{ recipient.username }}"
+                      data-call-id="{{ call_id }}">
                     <div class="chat-composer mb-2">
                         <div id="attachment-preview" class="attachment-preview d-none"></div>
                         <div class="d-flex flex-wrap align-items-center gap-2">
@@ -158,6 +222,7 @@
                 </form>
             </div>
             {% elif group and membership %}
+            {% set call_id = 'group-' ~ group.id %}
             <div class="d-flex flex-column h-100">
                 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                     <div>
@@ -174,6 +239,67 @@
                     <button type="submit" class="btn btn-danger btn-sm">Delete this hidden group</button>
                 </form>
                 {% endif %}
+                <div class="card shadow-sm mb-3">
+                    <div class="card-body">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                            <div>
+                                <h6 class="mb-1">Live Translation</h6>
+                                <p class="mb-0 text-muted small">Capture in-call audio for automatic transcription and translation.</p>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" id="translation-toggle" data-call-id="{{ call_id }}">
+                                <label class="form-check-label" for="translation-toggle">Enable</label>
+                            </div>
+                        </div>
+                        <div class="row g-2 align-items-end mt-3">
+                            <div class="col-sm-6 col-md-4">
+                                <label class="form-label small mb-1" for="translation-language">Caption language</label>
+                                <select id="translation-language" class="form-select form-select-sm">
+                                    <option value="en">English</option>
+                                    <option value="es">Spanish</option>
+                                    <option value="fr">French</option>
+                                    <option value="de">German</option>
+                                    <option value="pt">Portuguese</option>
+                                    <option value="hi">Hindi</option>
+                                    <option value="ja">Japanese</option>
+                                    <option value="zh">Chinese</option>
+                                </select>
+                            </div>
+                            <div class="col-sm-6 col-md-4">
+                                <label class="form-label small mb-1" for="translation-source-language">Spoken language</label>
+                                <select id="translation-source-language" class="form-select form-select-sm">
+                                    <option value="en-US">English (US)</option>
+                                    <option value="en-GB">English (UK)</option>
+                                    <option value="es-ES">Spanish</option>
+                                    <option value="fr-FR">French</option>
+                                    <option value="de-DE">German</option>
+                                    <option value="pt-BR">Portuguese</option>
+                                    <option value="hi-IN">Hindi</option>
+                                    <option value="ja-JP">Japanese</option>
+                                    <option value="zh">Chinese</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="mb-0 small text-uppercase text-muted">Live captions</h6>
+                                <small class="text-muted">Members choose their own translation language.</small>
+                            </div>
+                            <div id="translated-captions" class="border rounded p-3 bg-body-tertiary" style="max-height: 200px; overflow-y: auto;">
+                                {% if translated_captions %}
+                                    {% for caption in translated_captions %}
+                                    <div class="caption-line mb-1 small" data-language="{{ caption.target_language.lower() }}">
+                                        <span class="badge bg-secondary me-2">{{ caption.target_language.upper() }}</span>
+                                        {{ caption.translated_text }}
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <div class="text-muted small" data-caption-placeholder="true">Enable translation to start capturing group captions.</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div id="chat-box" class="chat-box flex-grow-1">
                     {% for message in group_messages %}
                     <div class="chat-message mb-3" title="{{ message.timestamp.strftime('%d.%m.%Y, %H:%M:%S') }}">
@@ -220,7 +346,8 @@
                       class="mt-3"
                       data-chat-type="group"
                       data-group-id="{{ group.id }}"
-                      data-alias="{{ membership.alias }}">
+                      data-alias="{{ membership.alias }}"
+                      data-call-id="{{ call_id }}">
                     <div class="chat-composer mb-2">
                         <div id="attachment-preview" class="attachment-preview d-none"></div>
                         <div class="d-flex flex-wrap align-items-center gap-2">
