@@ -628,7 +628,6 @@ def chat():
     return render_template(
         "chat.html",
         recipient=recipient,
-        recipient_id=recipient_id
         recipient_id=recipient_id,
         group=group,
         group_messages=group_messages,
