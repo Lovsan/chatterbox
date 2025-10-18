@@ -1,7 +1,8 @@
 # Description: This file contains the database models for the application.
 
 # import
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+import uuid
 from flask_sqlalchemy import SQLAlchemy
 
 
@@ -47,6 +48,9 @@ class Message(db.Model):
 
     sender = db.relationship('User', foreign_keys=[user_id], backref='sent_messages')
     recipient = db.relationship('User', foreign_keys=[recipient_id], backref='received_messages')
+    attachments = db.relationship(
+        'MessageAttachment', cascade='all, delete-orphan', backref='message'
+    )
 
 
 class Group(db.Model):
@@ -82,6 +86,9 @@ class GroupMessage(db.Model):
     timestamp = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
 
     membership = db.relationship('GroupMembership', backref='messages')
+    attachments = db.relationship(
+        'GroupMessageAttachment', cascade='all, delete-orphan', backref='group_message'
+    )
 
 
 class BannedIP(db.Model):
@@ -120,19 +127,70 @@ class ModeratorAssignment(db.Model):
     user = db.relationship('User', backref=db.backref('moderator_assignment', uselist=False))
 
 
-class CallSession(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    room_id = db.Column(db.String(64), unique=True, nullable=False)
-    caller_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    callee_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    status = db.Column(db.String(20), nullable=False, default="ringing")
-    started_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
-    accepted_at = db.Column(db.DateTime, nullable=True)
-    ended_at = db.Column(db.DateTime, nullable=True)
-    ended_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
-    terminated_by_moderator = db.Column(db.Boolean, nullable=False, default=False)
-    notes = db.Column(db.String(255), nullable=True)
+class MessageAttachment(db.Model):
+    """Attachment associated with a direct message."""
 
-    caller = db.relationship('User', foreign_keys=[caller_id], backref='outgoing_calls')
-    callee = db.relationship('User', foreign_keys=[callee_id], backref='incoming_calls')
-    ended_by = db.relationship('User', foreign_keys=[ended_by_id])
+    id = db.Column(db.Integer, primary_key=True)
+    message_id = db.Column(db.Integer, db.ForeignKey('message.id'), nullable=False)
+    media_type = db.Column(db.String(30), nullable=False)
+    storage_path = db.Column(db.String(500), nullable=False)
+    duration_seconds = db.Column(db.Float, nullable=True)
+    mime_type = db.Column(db.String(100), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+
+
+class GroupMessageAttachment(db.Model):
+    """Attachment associated with a group message."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    group_message_id = db.Column(
+        db.Integer, db.ForeignKey('group_message.id'), nullable=False
+    )
+    media_type = db.Column(db.String(30), nullable=False)
+    storage_path = db.Column(db.String(500), nullable=False)
+    duration_seconds = db.Column(db.Float, nullable=True)
+    mime_type = db.Column(db.String(100), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+
+
+class MediaUploadToken(db.Model):
+    """Temporary upload record awaiting attachment assignment."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    token = db.Column(db.String(64), unique=True, nullable=False, default=lambda: uuid.uuid4().hex)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    storage_path = db.Column(db.String(500), nullable=False)
+    media_type = db.Column(db.String(30), nullable=False)
+    mime_type = db.Column(db.String(100), nullable=True)
+    duration_seconds = db.Column(db.Float, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+    consumed_at = db.Column(db.DateTime, nullable=True)
+
+    user = db.relationship('User', backref='pending_uploads')
+
+    @property
+    def is_consumed(self) -> bool:
+        return self.consumed_at is not None
+
+    @property
+    def is_expired(self) -> bool:
+        expiration = self.created_at + timedelta(hours=1)
+        return datetime.now(timezone.utc) > expiration
+
+    def mark_consumed(self) -> None:
+        self.consumed_at = datetime.now(timezone.utc)
+
+
+class TranslatedTranscript(db.Model):
+    """Persisted translated captions for call replays."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    call_id = db.Column(db.String(64), nullable=False, index=True)
+    speaker_user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    original_language = db.Column(db.String(10), nullable=True)
+    target_language = db.Column(db.String(10), nullable=False)
+    transcript_text = db.Column(db.Text, nullable=False)
+    translated_text = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+
+    speaker = db.relationship("User", backref="translated_transcripts")

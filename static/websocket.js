@@ -1,9 +1,163 @@
 // This script handles the WebSocket communication between the client and the server
 
 document.addEventListener("DOMContentLoaded", () => {
+    const chatApp = document.getElementById("chat-app");
+    if (!chatApp || !window.chatTabs) {
+        return;
+    }
+
+    const socket = io();
+    const currentUsername = window.chatTabs.getCurrentUser();
+
+    document.addEventListener("submit", event => {
+        const form = event.target;
+        if (!form.classList.contains("message-form")) {
+            return;
+        }
+
+        event.preventDefault();
+        const input = form.querySelector("input[name='message']");
+        const message = input ? input.value.trim() : "";
+        if (!message) {
+            return;
+        }
+
+        socket.emit("send_message", {
+            username: form.dataset.username,
+            recipient: form.dataset.recipient,
+            message
+document.addEventListener("DOMContentLoaded", function() {
     const socket = io();
     const messageForm = document.getElementById("message-form");
     const messageInput = document.getElementById("message-input");
+    const attachmentState = window.chatAttachmentState || { pendingUpload: null, clearPendingUpload: () => {} };
+    const translationToggle = document.getElementById("translation-toggle");
+    const translationLanguage = document.getElementById("translation-language");
+    const translationSourceLanguage = document.getElementById("translation-source-language");
+    const captionsContainer = document.getElementById("translated-captions");
+    const callId = messageForm ? messageForm.dataset.callId : (translationToggle ? translationToggle.dataset.callId : null);
+
+    const translationState = {
+        enabled: false,
+        mediaRecorder: null,
+        mediaStream: null,
+        callId,
+    };
+
+    if (callId) {
+        socket.emit("join_call_room", { call_id: callId });
+    }
+
+    function filterCaptionsByLanguage() {
+        if (!captionsContainer) {
+            return;
+        }
+        const selected = translationLanguage ? translationLanguage.value.toLowerCase() : "";
+        const lines = captionsContainer.querySelectorAll(".caption-line");
+        lines.forEach((line) => {
+            const lang = (line.dataset.language || "").toLowerCase();
+            if (!selected || !lang || lang === selected) {
+                line.classList.remove("d-none");
+            } else {
+                line.classList.add("d-none");
+            }
+        });
+    }
+
+    function appendCaption(payload) {
+        if (!captionsContainer) {
+            return;
+        }
+        if (payload.call_id && translationState.callId && payload.call_id !== translationState.callId) {
+            return;
+        }
+        const placeholder = captionsContainer.querySelector('[data-caption-placeholder="true"]');
+        if (placeholder) {
+            placeholder.remove();
+        }
+        const captionLine = document.createElement("div");
+        captionLine.classList.add("caption-line", "mb-1", "small");
+        captionLine.dataset.language = (payload.target_language || "").toLowerCase();
+        const badge = document.createElement("span");
+        badge.classList.add("badge", "bg-secondary", "me-2");
+        badge.textContent = (payload.target_language || "?").toUpperCase();
+        const textSpan = document.createElement("span");
+        textSpan.textContent = payload.translation || payload.transcript || "";
+        captionLine.appendChild(badge);
+        captionLine.appendChild(textSpan);
+        captionsContainer.appendChild(captionLine);
+        filterCaptionsByLanguage();
+        captionsContainer.scrollTop = captionsContainer.scrollHeight;
+    }
+
+    function stopTranslationStream() {
+        if (translationState.mediaRecorder) {
+            translationState.mediaRecorder.stop();
+            translationState.mediaRecorder = null;
+        }
+        if (translationState.mediaStream) {
+            translationState.mediaStream.getTracks().forEach((track) => track.stop());
+            translationState.mediaStream = null;
+        }
+        translationState.enabled = false;
+    }
+
+    async function startTranslationStream() {
+        if (!callId) {
+            console.warn("No call identifier available for translation.");
+            return;
+        }
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            translationState.mediaStream = stream;
+            const options = { mimeType: "audio/webm;codecs=opus" };
+            const recorder = new MediaRecorder(stream, options);
+            recorder.addEventListener("dataavailable", (event) => {
+                if (!event.data || event.data.size === 0 || !translationState.enabled) {
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onloadend = function() {
+                    const base64Data = (reader.result || "").split(",")[1];
+                    if (!base64Data) {
+                        return;
+                    }
+                    socket.emit("call_transcription_chunk", {
+                        call_id: callId,
+                        audio_chunk: base64Data,
+                        source_language: translationSourceLanguage ? translationSourceLanguage.value : undefined,
+                    });
+                };
+                reader.readAsDataURL(event.data);
+            });
+            recorder.start(1000);
+            translationState.mediaRecorder = recorder;
+            translationState.enabled = true;
+            socket.emit("join_call_room", { call_id: callId });
+            socket.emit("set_translation_preferences", {
+                call_id: callId,
+                enabled: true,
+                target_language: translationLanguage ? translationLanguage.value : "en",
+                source_language: translationSourceLanguage ? translationSourceLanguage.value : undefined,
+            });
+        } catch (error) {
+            console.error("Unable to start translation stream", error);
+            stopTranslationStream();
+            alert("Unable to access microphone for live translation.");
+        }
+    }
+
+    function updateTranslationPreferences() {
+        if (!callId) {
+            return;
+        }
+        socket.emit("set_translation_preferences", {
+            call_id: callId,
+            enabled: translationState.enabled,
+            target_language: translationLanguage ? translationLanguage.value : "en",
+            source_language: translationSourceLanguage ? translationSourceLanguage.value : undefined,
+        });
+    }
 
     // ---------------------------------------------------------------------
     // chat messaging
@@ -20,13 +174,31 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
 
-            const message = messageInput.value.trim();
-            if (!message) {
+            const message = messageInput ? messageInput.value.trim() : "";
+            const pendingUpload = attachmentState.pendingUpload;
+
+            if (!message && !pendingUpload) {
                 return;
             }
 
             const chatType = messageForm.dataset.chatType;
-            if (chatType === "group") {
+            if (pendingUpload) {
+                const payload = {
+                    chat_type: chatType,
+                    caption: message,
+                    upload_token: pendingUpload.token,
+                };
+
+                if (chatType === "group") {
+                    payload.group_id = messageForm.dataset.groupId;
+                    payload.alias = messageForm.dataset.alias;
+                } else {
+                    payload.username = messageForm.dataset.username;
+                    payload.recipient = messageForm.dataset.recipient;
+                }
+
+                socket.emit("send_media_message", payload);
+            } else if (chatType === "group") {
                 socket.emit("send_group_message", {
                     group_id: messageForm.dataset.groupId,
                     alias: messageForm.dataset.alias,
@@ -40,11 +212,47 @@ document.addEventListener("DOMContentLoaded", () => {
                 });
             }
 
-            messageInput.value = "";
+            if (messageInput) {
+                messageInput.value = "";
+            }
+            if (attachmentState && typeof attachmentState.clearPendingUpload === 'function') {
+                attachmentState.clearPendingUpload();
+            }
         });
     }
 
-    socket.on("receive_message", (data) => {
+    if (translationToggle) {
+        translationToggle.addEventListener("change", function(event) {
+            if (event.target.checked) {
+                startTranslationStream();
+            } else {
+                stopTranslationStream();
+                updateTranslationPreferences();
+            }
+        });
+    }
+
+    if (translationLanguage) {
+        translationLanguage.addEventListener("change", function() {
+            updateTranslationPreferences();
+            filterCaptionsByLanguage();
+        });
+        filterCaptionsByLanguage();
+    }
+
+    if (translationSourceLanguage) {
+        translationSourceLanguage.addEventListener("change", function() {
+            updateTranslationPreferences();
+        });
+
+        input.value = "";
+    });
+
+    socket.on("receive_message", data => {
+        const chatTabs = window.chatTabs;
+        if (!chatTabs) {
+            return;
+    socket.on("receive_message", function(data) {
         if (!messageForm || messageForm.dataset.chatType !== "direct") {
             return;
         }
@@ -54,7 +262,13 @@ document.addEventListener("DOMContentLoaded", () => {
             (data.recipient === currentUsername && data.username === activeRecipient) ||
             (data.username === currentUsername && data.recipient === activeRecipient)
         ) {
-            appendMessage(data.username, currentUsername, data.message, data.timestamp);
+            appendMessage(
+                data.username,
+                currentUsername,
+                data.message,
+                data.timestamp,
+                data.attachments || []
+            );
         }
     });
 
@@ -65,7 +279,13 @@ document.addEventListener("DOMContentLoaded", () => {
         if (String(data.group_id) !== String(messageForm.dataset.groupId)) {
             return;
         }
-        appendMessage(data.alias, messageForm.dataset.alias, data.message, data.timestamp);
+        appendMessage(
+            data.alias,
+            messageForm.dataset.alias,
+            data.message,
+            data.timestamp,
+            data.attachments || []
+        );
     });
 
     socket.on("progress_update", (data) => {
@@ -79,389 +299,39 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // ---------------------------------------------------------------------
-    // WebRTC call handling
-    // ---------------------------------------------------------------------
-    const callStartButton = document.getElementById("call-start-btn");
-    const callAcceptButton = document.getElementById("call-accept-btn");
-    const callHangupButton = document.getElementById("call-hangup-btn");
-    const callStatusBanner = document.getElementById("call-status-banner");
-    const callVideoContainer = document.getElementById("call-video-container");
-    const localVideo = document.getElementById("local-video");
-    const remoteVideo = document.getElementById("remote-video");
-    const incomingModalElement = document.getElementById("incomingCallModal");
-    const incomingModal = incomingModalElement ? new bootstrap.Modal(incomingModalElement) : null;
-    const incomingCallFrom = document.getElementById("incoming-call-from");
-    const incomingAcceptButton = document.getElementById("incoming-call-accept");
-    const incomingDeclineButton = document.getElementById("incoming-call-decline");
-    const callStatusModalElement = document.getElementById("callStatusModal");
-    const callStatusModal = callStatusModalElement ? new bootstrap.Modal(callStatusModalElement) : null;
-    const callStatusMessage = document.getElementById("call-status-message");
+    socket.on("translated_caption", function(payload) {
+        appendCaption(payload || {});
+    });
 
-    const rtcConfig = {
-        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-    };
-
-    let peerConnection = null;
-    let localStream = null;
-    let remoteStream = null;
-    let callState = "idle";
-    let currentCall = null;
-
-    function isDirectChat() {
-        return messageForm && messageForm.dataset.chatType === "direct";
-    }
-
-    function setBanner(message) {
-        if (!callStatusBanner) {
+    socket.on("translation_error", function(payload) {
+        if (!payload || !payload.message) {
             return;
         }
-        if (!message) {
-            callStatusBanner.hidden = true;
-            callStatusBanner.textContent = "";
-            return;
-        }
-        callStatusBanner.hidden = false;
-        callStatusBanner.textContent = message;
-    }
-
-    function showStatus(message) {
-        if (callStatusModal && callStatusMessage) {
-            callStatusMessage.textContent = message;
-            callStatusModal.show();
-        } else {
-            setBanner(message);
-        }
-    }
-
-    function hideStatus() {
-        if (callStatusModal) {
-            callStatusModal.hide();
-        }
-        setBanner("");
-    }
-
-    function updateControls() {
-        if (!callStartButton || !callHangupButton || !callAcceptButton) {
-            return;
+        console.warn("Translation error:", payload.message);
+        if (captionsContainer) {
+            const errorLine = document.createElement("div");
+            errorLine.classList.add("text-danger", "small", "mb-1");
+            errorLine.textContent = payload.message;
+            captionsContainer.appendChild(errorLine);
+            captionsContainer.scrollTop = captionsContainer.scrollHeight;
         }
 
-        const acceptVisible = callState === "ringing";
-        const hangupVisible = ["calling", "active", "ringing"].includes(callState);
-        const startVisible = callState === "idle";
+        const isSender = data.username === currentUsername;
+        const otherParticipantId = isSender ? data.recipient_id : data.sender_id;
+        const otherParticipantUsername = isSender ? data.recipient : data.username;
+        const key = chatTabs.getDirectConversationKey(otherParticipantId);
 
-        callStartButton.classList.toggle("d-none", !startVisible);
-        callHangupButton.classList.toggle("d-none", !hangupVisible);
-        callAcceptButton.classList.toggle("d-none", !acceptVisible);
-    }
+        chatTabs.ensureConversation({
+            id: otherParticipantId,
+            name: otherParticipantUsername,
+            display_name: otherParticipantUsername,
+            type: "direct"
+        }, { activate: false });
 
-    function resetVideo() {
-        if (callVideoContainer) {
-            callVideoContainer.classList.add("d-none");
-        }
-        if (localVideo) {
-            localVideo.srcObject = null;
-        }
-        if (remoteVideo) {
-            remoteVideo.srcObject = null;
-        }
-        remoteStream = null;
-    }
-
-    function showVideo() {
-        if (callVideoContainer) {
-            callVideoContainer.classList.remove("d-none");
-        }
-    }
-
-    async function ensureLocalStream() {
-        if (localStream) {
-            return localStream;
-        }
-        try {
-            localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-            if (localVideo) {
-                localVideo.srcObject = localStream;
-            }
-            showVideo();
-            return localStream;
-        } catch (error) {
-            console.error("Media capture failed", error);
-            showStatus("Microphone or camera access was denied.");
-            throw error;
-        }
-    }
-
-    function createPeerConnection() {
-        if (peerConnection) {
-            peerConnection.close();
-        }
-        peerConnection = new RTCPeerConnection(rtcConfig);
-        peerConnection.onicecandidate = (event) => {
-            if (event.candidate && currentCall) {
-                socket.emit("ice_candidate", {
-                    sessionId: currentCall.id,
-                    candidate: event.candidate,
-                });
-            }
-        };
-        peerConnection.ontrack = (event) => {
-            if (!remoteStream) {
-                remoteStream = new MediaStream();
-                if (remoteVideo) {
-                    remoteVideo.srcObject = remoteStream;
-                }
-            }
-            event.streams[0].getTracks().forEach((track) => {
-                remoteStream.addTrack(track);
-            });
-            showVideo();
-        };
-
-        if (localStream) {
-            localStream.getTracks().forEach((track) => {
-                peerConnection.addTrack(track, localStream);
-            });
-        }
-
-        return peerConnection;
-    }
-
-    function cleanupCall(message) {
-        if (peerConnection) {
-            peerConnection.ontrack = null;
-            peerConnection.onicecandidate = null;
-            peerConnection.close();
-            peerConnection = null;
-        }
-        if (localStream) {
-            localStream.getTracks().forEach((track) => track.stop());
-            localStream = null;
-        }
-        resetVideo();
-        callState = "idle";
-        currentCall = null;
-        updateControls();
-        hideStatus();
-        if (incomingModal) {
-            incomingModal.hide();
-        }
-        if (message) {
-            setBanner(message);
-        }
-    }
-
-    async function startOutgoingCall() {
-        if (!isDirectChat() || callState !== "idle" || !callStartButton) {
-            return;
-        }
-        const recipient = callStartButton.dataset.recipient;
-        if (!recipient) {
-            return;
-        }
-
-        try {
-            await ensureLocalStream();
-        } catch (error) {
-            return;
-        }
-
-        createPeerConnection();
-        callState = "calling";
-        currentCall = {
-            id: null,
-            roomId: null,
-            partner: recipient,
-            role: "caller",
-        };
-        updateControls();
-        showStatus(`Calling ${recipient}…`);
-
-        try {
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-            socket.emit("call_request", {
-                target: recipient,
-                offer: offer,
-            });
-        } catch (error) {
-            console.error("Failed to start call", error);
-            cleanupCall("Could not start the call.");
-        }
-    }
-
-    async function acceptIncomingCall() {
-        if (!currentCall || currentCall.role !== "callee") {
-            return;
-        }
-        try {
-            await ensureLocalStream();
-        } catch (error) {
-            declineIncomingCall();
-            return;
-        }
-
-        createPeerConnection();
-        updateControls();
-
-        try {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(currentCall.offer));
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-            callState = "active";
-            showStatus("Call connected.");
-            socket.emit("call_answer", {
-                sessionId: currentCall.id,
-                accepted: true,
-                answer: answer,
-            });
-        } catch (error) {
-            console.error("Failed to accept call", error);
-            cleanupCall("Call could not be connected.");
-            socket.emit("call_answer", {
-                sessionId: currentCall.id,
-                accepted: false,
-            });
-        }
-    }
-
-    function declineIncomingCall() {
-        if (!currentCall) {
-            return;
-        }
-        socket.emit("call_answer", {
-            sessionId: currentCall.id,
-            accepted: false,
+        chatTabs.appendMessage(key, {
+            username: data.username,
+            message: data.message,
+            timestamp: data.timestamp
         });
-        cleanupCall("Call declined.");
-    }
-
-    function hangupCall() {
-        if (!currentCall) {
-            cleanupCall();
-            return;
-        }
-        socket.emit("call_hangup", { sessionId: currentCall.id });
-        cleanupCall("Call ended.");
-    }
-
-    if (callStartButton) {
-        callStartButton.addEventListener("click", startOutgoingCall);
-    }
-    if (callAcceptButton) {
-        callAcceptButton.addEventListener("click", acceptIncomingCall);
-    }
-    if (callHangupButton) {
-        callHangupButton.addEventListener("click", hangupCall);
-    }
-    if (incomingAcceptButton) {
-        incomingAcceptButton.addEventListener("click", () => {
-            if (incomingModal) {
-                incomingModal.hide();
-            }
-            acceptIncomingCall();
-        });
-    }
-    if (incomingDeclineButton) {
-        incomingDeclineButton.addEventListener("click", () => {
-            declineIncomingCall();
-        });
-    }
-
-    function handleIncomingCall(data) {
-        if (callState !== "idle") {
-            socket.emit("call_answer", { sessionId: data.sessionId, accepted: false });
-            return;
-        }
-        if (!isDirectChat()) {
-            showStatus(`Incoming call from ${data.caller}. Open their chat to answer.`);
-            return;
-        }
-        if (messageForm.dataset.recipient !== data.caller) {
-            showStatus(`Incoming call from ${data.caller}. Switch chats to respond.`);
-            return;
-        }
-
-        currentCall = {
-            id: data.sessionId,
-            roomId: data.roomId,
-            partner: data.caller,
-            offer: data.offer,
-            role: "callee",
-        };
-        callState = "ringing";
-        updateControls();
-        setBanner(`Incoming call from ${data.caller}`);
-        if (incomingCallFrom) {
-            incomingCallFrom.textContent = data.caller;
-        }
-        if (incomingModal) {
-            incomingModal.show();
-        }
-    }
-
-    socket.on("call_outgoing", (data) => {
-        if (!currentCall || currentCall.role !== "caller") {
-            return;
-        }
-        currentCall.id = data.sessionId;
-        currentCall.roomId = data.roomId;
-        callState = "calling";
-        updateControls();
-        setBanner(`Calling ${currentCall.partner}…`);
-    });
-
-    socket.on("call_incoming", (data) => {
-        handleIncomingCall(data);
-    });
-
-    socket.on("call_answered", async (data) => {
-        if (!currentCall || data.sessionId !== currentCall.id) {
-            return;
-        }
-        if (currentCall.role === "caller" && peerConnection) {
-            try {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-                callState = "active";
-                setBanner("Call connected.");
-                showVideo();
-            } catch (error) {
-                console.error("Failed to process answer", error);
-                cleanupCall("Call failed to connect.");
-            }
-        }
-    });
-
-    socket.on("call_declined", (data) => {
-        if (!currentCall || data.sessionId !== currentCall.id) {
-            return;
-        }
-        cleanupCall("Call was declined.");
-    });
-
-    socket.on("call_ended", (data) => {
-        if (!currentCall || data.sessionId !== currentCall.id) {
-            cleanupCall("Call ended.");
-            return;
-        }
-        const endedBy = data.endedBy ? ` by ${data.endedBy}` : "";
-        cleanupCall(`Call ended${endedBy}.`);
-    });
-
-    socket.on("ice_candidate", async (data) => {
-        if (!currentCall || data.sessionId !== currentCall.id || !peerConnection) {
-            return;
-        }
-        try {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-        } catch (error) {
-            console.error("Error adding ICE candidate", error);
-        }
-    });
-
-    socket.on("call_error", (data) => {
-        const message = data && data.error ? data.error : "Call error";
-        console.warn("Call error:", message);
-        cleanupCall(message);
     });
 });

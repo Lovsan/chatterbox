@@ -1,8 +1,12 @@
 """Main Flask application for Chatterbox."""
 
+import mimetypes
+import os
 import secrets
 import string
+import uuid
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from flask import (
     Flask,
@@ -24,6 +28,8 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from call_sessions import CallSessionManager
 from event_handlers import register_event_handlers
 from helpers import admin_required, login_required, logout_required
+from flask import send_from_directory
+
 from models import (
     db,
     BannedCountry,
@@ -33,8 +39,12 @@ from models import (
     Group,
     GroupMembership,
     GroupMessage,
+    GroupMessageAttachment,
+    MediaUploadToken,
     Message,
+    MessageAttachment,
     ModeratorAssignment,
+    TranslatedTranscript,
     User,
     CallSession,
 )
@@ -44,6 +54,12 @@ app = Flask(__name__)
 
 # reload templates
 app.config["TEMPLATES_AUTO_RELOAD"] = True
+
+# configure uploads
+uploads_path = Path(app.instance_path) / "uploads"
+uploads_path.mkdir(parents=True, exist_ok=True)
+app.config["UPLOAD_FOLDER"] = str(uploads_path)
+app.config.setdefault("MAX_UPLOAD_SIZE", 25 * 1024 * 1024)  # 25 MB default
 
 # configure database
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///chatterbox.db"
@@ -109,6 +125,83 @@ def get_client_country() -> str:
 LOCK_TIMEOUT_MINUTES = 6
 
 
+@app.route("/uploads/<path:filename>")
+def serve_upload(filename: str):
+    """Serve media uploads from the instance storage directory."""
+
+    uploads_dir = Path(app.config["UPLOAD_FOLDER"])
+    return send_from_directory(uploads_dir, filename)
+
+
+@app.route("/api/uploads", methods=["POST"])
+def create_upload():
+    """Accept an uploaded media blob and issue a token for later attachment."""
+
+    if not session.get("user_id"):
+        return jsonify({"error": "Authentication required."}), 401
+
+    if request.content_length and request.content_length > app.config["MAX_UPLOAD_SIZE"]:
+        return jsonify({"error": "Upload exceeds size limit."}), 413
+
+    uploaded_file = request.files.get("file")
+    if not uploaded_file or uploaded_file.filename is None:
+        return jsonify({"error": "No media file provided."}), 400
+
+    provided_mime = request.form.get("mime_type") or uploaded_file.mimetype
+    if not provided_mime:
+        provided_mime = mimetypes.guess_type(uploaded_file.filename)[0]
+
+    media_category = categorize_mime_type(provided_mime or "")
+    if not media_category:
+        return jsonify({"error": "Unsupported media type."}), 400
+
+    duration_seconds = None
+    if request.form.get("duration"):
+        try:
+            duration_seconds = float(request.form["duration"])
+        except (TypeError, ValueError):
+            duration_seconds = None
+
+    extension = Path(uploaded_file.filename or "").suffix
+    if not extension:
+        extension = mimetypes.guess_extension(provided_mime or "") or ""
+    if extension and not extension.startswith("."):
+        extension = f".{extension}"
+
+    filename = f"{uuid.uuid4().hex}{extension or ''}"
+    file_path = Path(app.config["UPLOAD_FOLDER"]) / filename
+
+    try:
+        uploaded_file.save(file_path)
+    except OSError:
+        return jsonify({"error": "Unable to save uploaded file."}), 500
+
+    upload_token = MediaUploadToken(
+        user_id=session["user_id"],
+        storage_path=filename,
+        media_type=media_category,
+        mime_type=provided_mime,
+        duration_seconds=duration_seconds,
+    )
+    db.session.add(upload_token)
+    db.session.flush()
+    token_value = upload_token.token
+    db.session.commit()
+
+    return (
+        jsonify(
+            {
+                "token": token_value,
+                "media_type": upload_token.media_type,
+                "mime_type": upload_token.mime_type,
+                "url": url_for("serve_upload", filename=filename),
+                "duration_seconds": upload_token.duration_seconds,
+            }
+        ),
+        201,
+    )
+
+
 def ensure_schema() -> None:
     """Ensure upgraded installations have the required database schema."""
 
@@ -158,11 +251,56 @@ def ensure_schema() -> None:
         if alter_statements:
             db.session.commit()
 
+        updates_performed = False
+        if "message" in existing_tables:
+            db.session.execute(text("UPDATE message SET text='' WHERE text IS NULL"))
+            updates_performed = True
+        if "group_message" in existing_tables:
+            db.session.execute(
+                text("UPDATE group_message SET text='' WHERE text IS NULL")
+            )
+            updates_performed = True
+        if updates_performed:
+            db.session.commit()
+
         # Ensure any newly introduced tables are created.
         db.create_all()
 
 
 ensure_schema()
+
+
+ALLOWED_MEDIA_TYPES = {
+    "image": {
+        "image/jpeg",
+        "image/png",
+        "image/gif",
+        "image/webp",
+    },
+    "audio": {
+        "audio/mpeg",
+        "audio/ogg",
+        "audio/webm",
+        "audio/wav",
+    },
+    "video": {
+        "video/webm",
+        "video/mp4",
+        "video/ogg",
+    },
+}
+
+
+def categorize_mime_type(mime_type: str) -> str | None:
+    """Return the media category for a MIME type."""
+
+    if not mime_type:
+        return None
+    normalized = mime_type.lower()
+    for category, allowed_set in ALLOWED_MEDIA_TYPES.items():
+        if normalized in allowed_set or normalized.startswith(f"{category}/"):
+            return category
+    return None
 
 
 @app.before_request
@@ -434,6 +572,8 @@ def chat():
     group = None
     membership = None
     group_messages = []
+    translated_captions = []
+    call_identifier = None
     active_hubs = CommunicationHub.query.filter_by(is_enabled=True).order_by(CommunicationHub.name.asc()).all()
 
     if recipient_id:
@@ -447,6 +587,14 @@ def chat():
                 | ((Message.user_id == recipient_id) & (Message.recipient_id == session["user_id"]))
             )
             .order_by(Message.timestamp.asc())
+            .all()
+        )
+        participants = sorted([session["user_id"], recipient_id])
+        call_identifier = f"direct-{participants[0]}-{participants[1]}"
+        translated_captions = (
+            TranslatedTranscript.query.filter_by(call_id=call_identifier)
+            .order_by(TranslatedTranscript.created_at.asc())
+            .limit(200)
             .all()
         )
 
@@ -469,16 +617,25 @@ def chat():
             .order_by(GroupMessage.timestamp.asc())
             .all()
         )
+        call_identifier = f"group-{group_id}"
+        translated_captions = (
+            TranslatedTranscript.query.filter_by(call_id=call_identifier)
+            .order_by(TranslatedTranscript.created_at.asc())
+            .limit(200)
+            .all()
+        )
 
     return render_template(
         "chat.html",
-        messages=messages,
         recipient=recipient,
+        recipient_id=recipient_id
         recipient_id=recipient_id,
         group=group,
         group_messages=group_messages,
         membership=membership,
         hubs=active_hubs,
+        translated_captions=translated_captions,
+        call_identifier=call_identifier,
     )
 
 
@@ -487,20 +644,44 @@ def chat():
 def chat_start():
     """Handle starting a chat with a new user. Login required."""
 
+    payload = request.get_json(silent=True)
+    if payload:
+        username = (payload.get("username") or "").strip()
+    else:
+        username = (request.form.get("username") or "").strip()
     username = request.form.get("username", "").strip()
 
     if not username:
-        flash("Recipient username is required!")
+        message = "Recipient username is required!"
+        if payload is not None:
+            return jsonify({"message": message}), 400
+        flash(message)
         return redirect(url_for("chat"))
 
     if username == session["username"]:
-        flash("You cannot start a chat with yourself!")
+        message = "You cannot start a chat with yourself!"
+        if payload is not None:
+            return jsonify({"message": message}), 400
+        flash(message)
         return redirect(url_for("chat"))
 
     recipient = User.query.filter_by(username=username).first()
     if not recipient:
-        flash("User not found!")
+        message = "User not found!"
+        if payload is not None:
+            return jsonify({"message": message}), 404
+        flash(message)
         return redirect(url_for("chat"))
+
+    if payload is not None:
+        return jsonify({
+            "conversation": {
+                "id": recipient.id,
+                "name": recipient.username,
+                "display_name": recipient.username,
+                "type": "direct"
+            }
+        }), 201
 
     return redirect(url_for("chat", recipient_id=recipient.id))
 
@@ -510,6 +691,11 @@ def chat_start():
 def user_list():
     """Return the list of users the current user chatted with."""
 
+    # Create a list of dictionaries containing user id and username
+    users = [{'id': user.id, 'username': user.username} for user, _ in recent_users]
+
+    # Return the list of users as a JSON response
+    return jsonify({'users': users})
     recent_users = (
         db.session.query(User, func.max(Message.timestamp).label("last_message_time"))
         .join(Message, (Message.user_id == User.id) | (Message.recipient_id == User.id))
@@ -915,6 +1101,83 @@ def api_update_call_access(user_id: int):
     blocked = bool(data.get("blocked"))
     call_manager.set_user_blocked(user, blocked)
     return jsonify({"userId": user.id, "blocked": user.is_blocked})
+
+
+@app.route("/chat/open-conversations")
+@login_required
+def open_conversations():
+    """Return a list of conversations for the tab bar."""
+
+    current_user_id = session["user_id"]
+
+    messages = Message.query.filter(
+        (Message.user_id == current_user_id) | (Message.recipient_id == current_user_id)
+    ).order_by(Message.timestamp.desc()).all()
+
+    conversations = {}
+    user_cache = {}
+    for message in messages:
+        other_id = message.recipient_id if message.user_id == current_user_id else message.user_id
+        if other_id in conversations:
+            continue
+        other_user = message.recipient if message.user_id == current_user_id else message.sender
+        if other_user is None:
+            other_user = user_cache.get(other_id)
+            if other_user is None:
+                other_user = User.query.get(other_id)
+                user_cache[other_id] = other_user
+        if not other_user:
+            continue
+        conversations[other_id] = {
+            "id": other_user.id,
+            "name": other_user.username,
+            "display_name": other_user.username,
+            "type": "direct",
+            "last_message": message.text,
+            "last_timestamp": message.timestamp.isoformat() if message.timestamp else None
+        }
+
+    return jsonify({"conversations": list(conversations.values())})
+
+
+@app.route("/chat/conversation/<int:partner_id>/messages")
+@login_required
+def conversation_messages(partner_id):
+    """Return the message history for a conversation."""
+
+    current_user_id = session["user_id"]
+    partner = User.query.get_or_404(partner_id)
+
+    messages = Message.query.filter(
+        ((Message.user_id == current_user_id) & (Message.recipient_id == partner_id)) |
+        ((Message.user_id == partner_id) & (Message.recipient_id == current_user_id))
+    ).order_by(Message.timestamp.asc()).all()
+
+    serialized = []
+    for message in messages:
+        serialized.append({
+            "id": message.id,
+            "text": message.text,
+            "timestamp": message.timestamp.isoformat() if message.timestamp else None,
+            "sender": {
+                "id": message.user_id,
+                "username": message.sender.username if message.sender else None
+            },
+            "recipient": {
+                "id": message.recipient_id,
+                "username": message.recipient.username if message.recipient else None
+            }
+        })
+
+    return jsonify({
+        "conversation": {
+            "id": partner.id,
+            "name": partner.username,
+            "display_name": partner.username,
+            "type": "direct"
+        },
+        "messages": serialized
+    })
 
 
 # verify async mode
