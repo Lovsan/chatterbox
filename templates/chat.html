@@ -391,5 +391,37 @@
     </div>
 </div>
 
+<div class="modal fade" id="incomingCallModal" tabindex="-1" aria-labelledby="incomingCallLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="incomingCallLabel">Incoming Call</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">You have an incoming call from <strong id="incoming-call-from"></strong>.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" id="incoming-call-decline" data-bs-dismiss="modal">Decline</button>
+                <button type="button" class="btn btn-primary" id="incoming-call-accept">Accept</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="callStatusModal" tabindex="-1" aria-labelledby="callStatusLabel" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="callStatusLabel">Call status</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0" id="call-status-message">Connecting…</p>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="{{ url_for('static', filename='websocket.js') }}"></script>
 {% endblock %}

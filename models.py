@@ -29,6 +29,7 @@ class User(db.Model):
     last_arrival_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
     pin_hash = db.Column(db.String(200), nullable=True)
     is_admin = db.Column(db.Boolean, nullable=False, default=False)
+    is_blocked = db.Column(db.Boolean, nullable=False, default=False)
 
     @property
     def has_pin(self) -> bool:

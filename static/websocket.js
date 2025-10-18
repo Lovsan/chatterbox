@@ -159,12 +159,15 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 
+    // ---------------------------------------------------------------------
+    // chat messaging
+    // ---------------------------------------------------------------------
     if (messageForm && messageForm.dataset.chatType === "group") {
         socket.emit("join_group_room", { group_id: messageForm.dataset.groupId });
     }
 
     if (messageForm) {
-        messageForm.addEventListener("submit", function(event) {
+        messageForm.addEventListener("submit", (event) => {
             event.preventDefault();
 
             if (!messageInput) {
@@ -199,13 +202,13 @@ document.addEventListener("DOMContentLoaded", function() {
                 socket.emit("send_group_message", {
                     group_id: messageForm.dataset.groupId,
                     alias: messageForm.dataset.alias,
-                    message: message
+                    message: message,
                 });
             } else {
                 socket.emit("send_message", {
                     username: messageForm.dataset.username,
                     recipient: messageForm.dataset.recipient,
-                    message: message
+                    message: message,
                 });
             }
 
@@ -269,7 +272,7 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     });
 
-    socket.on("receive_group_message", function(data) {
+    socket.on("receive_group_message", (data) => {
         if (!messageForm || messageForm.dataset.chatType !== "group") {
             return;
         }
@@ -285,13 +288,13 @@ document.addEventListener("DOMContentLoaded", function() {
         );
     });
 
-    socket.on("progress_update", function(data) {
+    socket.on("progress_update", (data) => {
         updateProgressDisplay(data);
     });
 
-    socket.on("error", function(data) {
+    socket.on("error", (data) => {
         if (data && data.error) {
-            console.warn('Chat error:', data.error);
+            console.warn("Chat error:", data.error);
             alert(data.error);
         }
     });
