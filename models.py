@@ -30,6 +30,13 @@ class User(db.Model):
     pin_hash = db.Column(db.String(200), nullable=True)
     is_admin = db.Column(db.Boolean, nullable=False, default=False)
     is_blocked = db.Column(db.Boolean, nullable=False, default=False)
+    profile_features_enabled = db.Column(db.Boolean, nullable=False, default=False)
+    allow_file_uploads = db.Column(db.Boolean, nullable=False, default=False)
+    marketplace_enabled = db.Column(db.Boolean, nullable=False, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+    muted_until = db.Column(db.DateTime, nullable=True)
+    banned_until = db.Column(db.DateTime, nullable=True)
+    warning_count = db.Column(db.Integer, nullable=False, default=0)
 
     @property
     def has_pin(self) -> bool:
@@ -37,13 +44,20 @@ class User(db.Model):
 
         return bool(self.pin_hash)
 
+    @property
+    def is_moderator(self) -> bool:
+        return bool(getattr(self, "moderator_assignment", None))
+
 
 # Message database model
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     recipient_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    text = db.Column(db.String(500), nullable=False)
+    text = db.Column(db.String(500), nullable=False, default="")
+    ciphertext = db.Column(db.Text, nullable=True)
+    nonce = db.Column(db.String(48), nullable=True)
+    is_encrypted = db.Column(db.Boolean, nullable=False, default=False)
     timestamp = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
 
     sender = db.relationship('User', foreign_keys=[user_id], backref='sent_messages')
@@ -82,7 +96,10 @@ class GroupMessage(db.Model):
     group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=False)
     membership_id = db.Column(db.Integer, db.ForeignKey('group_membership.id'), nullable=False)
     alias = db.Column(db.String(30), nullable=False)
-    text = db.Column(db.String(500), nullable=False)
+    text = db.Column(db.String(500), nullable=False, default="")
+    ciphertext = db.Column(db.Text, nullable=True)
+    nonce = db.Column(db.String(48), nullable=True)
+    is_encrypted = db.Column(db.Boolean, nullable=False, default=False)
     timestamp = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
 
     membership = db.relationship('GroupMembership', backref='messages')
@@ -192,6 +209,87 @@ class TranslatedTranscript(db.Model):
     transcript_text = db.Column(db.Text, nullable=False)
     translated_text = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+
+
+class UserProfile(db.Model):
+    """Extended profile information that can be toggled by moderators."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), unique=True, nullable=False)
+    display_name = db.Column(db.String(80), nullable=True)
+    bio = db.Column(db.Text, nullable=True)
+    favorite_languages = db.Column(db.String(120), nullable=True)
+    social_links = db.Column(db.Text, nullable=True)
+    theme_color = db.Column(db.String(20), nullable=True)
+    avatar_path = db.Column(db.String(300), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+
+    user = db.relationship("User", backref=db.backref("profile", uselist=False))
+
+
+class DisciplinaryAction(db.Model):
+    """Administrative warnings, mutes, and bans with durations."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    issued_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    action_type = db.Column(db.String(20), nullable=False)
+    reason = db.Column(db.String(255), nullable=True)
+    duration_hours = db.Column(db.Integer, nullable=True)
+    expires_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+
+    user = db.relationship("User", foreign_keys=[user_id], backref="disciplinary_actions")
+    moderator = db.relationship("User", foreign_keys=[issued_by])
+
+
+class MarketplaceListing(db.Model):
+    """Product listing within the escrow marketplace."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    seller_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    title = db.Column(db.String(120), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    price_cents = db.Column(db.Integer, nullable=False)
+    currency = db.Column(db.String(10), nullable=False, default="USD")
+    expires_at = db.Column(db.DateTime, nullable=True)
+    view_count = db.Column(db.Integer, nullable=False, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+
+    seller = db.relationship("User", backref="marketplace_listings")
+
+
+class EscrowTransaction(db.Model):
+    """Escrow workflow for marketplace purchases."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    listing_id = db.Column(db.Integer, db.ForeignKey("marketplace_listing.id"), nullable=False)
+    buyer_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    amount_cents = db.Column(db.Integer, nullable=False)
+    status = db.Column(db.String(30), nullable=False, default="held")
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+    released_at = db.Column(db.DateTime, nullable=True)
+    payment_method = db.Column(db.String(30), nullable=True)
+
+    listing = db.relationship("MarketplaceListing", backref="escrows")
+    buyer = db.relationship("User", foreign_keys=[buyer_id])
+
+
+class MarketplaceRequest(db.Model):
+    """Buyer requests for specific products or services."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    requester_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    title = db.Column(db.String(120), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    budget_cents = db.Column(db.Integer, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=True)
+
+    requester = db.relationship("User", backref="purchase_requests")
 
     speaker = db.relationship("User", backref="translated_transcripts")
 

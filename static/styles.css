@@ -226,6 +226,72 @@ main {
     text-decoration: none;
 }
 
+.admin-glow {
+    color: #f59f00;
+    font-weight: 600;
+    text-shadow: 0 0 8px rgba(255, 153, 0, 0.45);
+}
+
+.moderator-highlight {
+    color: #0ca678;
+    font-weight: 600;
+}
+
+.emoji-panel {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));
+    gap: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.btn-emoji {
+    background: transparent;
+    border: none;
+    font-size: 1.25rem;
+    line-height: 1.2;
+    transition: transform 0.1s ease;
+}
+
+.btn-emoji:hover {
+    transform: scale(1.2);
+}
+
+.composer-actions .btn {
+    min-width: 90px;
+}
+
+.composer-privacy .form-control-sm {
+    min-height: 32px;
+}
+
+#marketplace-section .card + .card {
+    margin-top: 1rem;
+}
+
+.marketplace-card {
+    border-left: 3px solid transparent;
+    transition: box-shadow 0.2s ease;
+}
+
+.marketplace-card:hover {
+    box-shadow: 0 0 12px rgba(13, 110, 253, 0.15);
+}
+
+.marketplace-card-soon {
+    border-left-color: var(--bs-danger);
+    box-shadow: 0 0 14px rgba(220, 53, 69, 0.25);
+}
+
+.marketplace-alert {
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.price-badge {
+    font-size: 0.75rem;
+}
+
 .attachment-preview {
     border-radius: 0.7rem;
     border: 1px dashed var(--border-subtle);
@@ -304,6 +370,53 @@ main {
 
 body.locked {
     overflow: hidden;
+}
+
+body.admin-glow {
+    position: relative;
+}
+
+body.admin-glow::before {
+    content: "";
+    position: fixed;
+    inset: 0.75rem;
+    border-radius: 1.5rem;
+    pointer-events: none;
+    border: 2px solid rgba(255, 193, 7, 0.6);
+    box-shadow: 0 0 25px rgba(255, 140, 0, 0.45);
+    animation: adminPulseBorder 3.2s ease-in-out infinite;
+    z-index: 999;
+}
+
+.admin-glow-outline {
+    position: relative;
+    border-radius: 1rem;
+    box-shadow: 0 0 18px rgba(255, 193, 7, 0.45);
+    animation: adminPulseBorder 2.6s ease-in-out infinite;
+}
+
+.admin-glow-outline::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    border: 1px solid rgba(255, 193, 7, 0.75);
+    pointer-events: none;
+}
+
+@keyframes adminPulseBorder {
+    0% {
+        box-shadow: 0 0 0 rgba(255, 193, 7, 0.45);
+        opacity: 0.9;
+    }
+    50% {
+        box-shadow: 0 0 28px rgba(255, 140, 0, 0.65);
+        opacity: 1;
+    }
+    100% {
+        box-shadow: 0 0 0 rgba(255, 193, 7, 0.25);
+        opacity: 0.9;
+    }
 }
 
 .hub-card {

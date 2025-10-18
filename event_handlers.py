@@ -9,7 +9,7 @@ from collections import defaultdict, deque
 from datetime import datetime, timezone
 from typing import Dict, Optional
 
-from flask import session
+from flask import session, url_for
 from flask_socketio import emit, join_room, leave_room
 
 from achievements import apply_progress
@@ -24,6 +24,12 @@ from models import (
     TranslatedTranscript,
     User,
     db,
+)
+
+from security_utils import (
+    conversation_identifier_for_direct,
+    conversation_identifier_for_group,
+    encrypt_conversation_message,
 )
 
 try:  # pragma: no cover - optional cloud dependencies
@@ -46,6 +52,16 @@ _rate_limiter: Dict[int, deque] = defaultdict(deque)
 _PREFERENCE_TTL_SECONDS = 60 * 60  # 1 hour cache
 _RATE_LIMIT_WINDOW_SECONDS = 5
 _RATE_LIMIT_MAX_EVENTS = 20
+
+
+def _contains_blocked_language(text: str) -> bool:
+    if not text:
+        return False
+    lowered = text.lower()
+    for entry in BlockedWord.query.all():
+        if entry.word and entry.word.lower() in lowered:
+            return True
+    return False
 
 
 def _get_speech_client() -> Optional["speech.SpeechClient"]:
@@ -200,22 +216,28 @@ def register_event_handlers(socketio, app, call_manager):
             return
 
         sender = User.query.get(session["user_id"])
-        blocked_word = next(
-            (
-                entry
-                for entry in BlockedWord.query.all()
-                if entry.word and entry.word.lower() in message.lower()
-            ),
-            None,
-        )
-        if blocked_word:
+        now = datetime.now(timezone.utc)
+        if sender and sender.muted_until:
+            if sender.muted_until > now:
+                emit("error", {"error": "You are muted by a moderator."})
+                return
+            sender.muted_until = None
+            db.session.commit()
+
+        if _contains_blocked_language(message):
             emit("error", {"error": "Your message contains blocked language."})
             return
+
+        conversation_id = conversation_identifier_for_direct(session["user_id"], recipient_db.id)
+        nonce, ciphertext = encrypt_conversation_message(conversation_id, message)
 
         new_message = Message(
             user_id=session["user_id"],
             recipient_id=recipient_db.id,
-            text=message,
+            text="" if ciphertext else message,
+            ciphertext=ciphertext,
+            nonce=nonce,
+            is_encrypted=bool(ciphertext),
             timestamp=datetime.now(timezone.utc),
         )
         db.session.add(new_message)
@@ -224,21 +246,22 @@ def register_event_handlers(socketio, app, call_manager):
         db.session.commit()
 
         payload = {
+            "message_id": new_message.id,
             "username": username,
+            "sender_id": session["user_id"],
             "recipient": recipient_db.username,
-            "message": message,
-            "timestamp": new_message.timestamp.isoformat(),
+            "recipient_id": recipient_db.id,
+            "message": None if ciphertext else message,
+            "ciphertext": ciphertext,
+            "nonce": nonce,
+            "is_encrypted": bool(ciphertext),
+            "conversation": conversation_id,
+            "timestamp": new_message.timestamp.isoformat() if new_message.timestamp else None,
             "attachments": [],
         }
         recipient_room = f"user_{recipient_db.id}"
         sender_room = f"user_{session['user_id']}"
-        enriched_payload = dict(data)
-        enriched_payload["timestamp"] = new_message.timestamp.isoformat() if new_message.timestamp else None
-        enriched_payload["recipient_id"] = recipient_db.id
-        enriched_payload["sender_id"] = session["user_id"]
 
-        emit("receive_message", enriched_payload, room=recipient_room)
-        emit("receive_message", enriched_payload, room=sender_room)
         emit("receive_message", payload, room=recipient_room)
         emit("receive_message", payload, room=sender_room)
 
@@ -271,15 +294,16 @@ def register_event_handlers(socketio, app, call_manager):
             emit("error", {"error": "Message must be at most 500 characters long!"})
             return
 
-        blocked_word = next(
-            (
-                entry
-                for entry in BlockedWord.query.all()
-                if entry.word and entry.word.lower() in message.lower()
-            ),
-            None,
-        )
-        if blocked_word:
+        sender = User.query.get(session["user_id"])
+        now = datetime.now(timezone.utc)
+        if sender and sender.muted_until:
+            if sender.muted_until > now:
+                emit("error", {"error": "You are muted by a moderator."})
+                return
+            sender.muted_until = None
+            db.session.commit()
+
+        if _contains_blocked_language(message):
             emit("error", {"error": "Your message contains blocked language."})
             return
 
@@ -300,11 +324,17 @@ def register_event_handlers(socketio, app, call_manager):
             emit("error", {"error": "This hidden group has expired."})
             return
 
+        conversation_id = conversation_identifier_for_group(group_id)
+        nonce, ciphertext = encrypt_conversation_message(conversation_id, message)
+
         group_message = GroupMessage(
             group_id=group_id,
             membership_id=membership.id,
             alias=membership.alias,
-            text=message,
+            text="" if ciphertext else message,
+            ciphertext=ciphertext,
+            nonce=nonce,
+            is_encrypted=bool(ciphertext),
             timestamp=datetime.now(timezone.utc),
         )
         db.session.add(group_message)
@@ -316,7 +346,11 @@ def register_event_handlers(socketio, app, call_manager):
         payload = {
             "group_id": group_id,
             "alias": membership.alias,
-            "message": message,
+            "message": None if ciphertext else message,
+            "ciphertext": ciphertext,
+            "nonce": nonce,
+            "is_encrypted": bool(ciphertext),
+            "conversation": conversation_id,
             "timestamp": group_message.timestamp.isoformat(),
             "attachments": [],
         }
@@ -350,17 +384,7 @@ def register_event_handlers(socketio, app, call_manager):
             return
 
         caption = (data.get("caption") or "").strip()
-        blocked_word = None
-        if caption:
-            blocked_word = next(
-                (
-                    entry
-                    for entry in BlockedWord.query.all()
-                    if entry.word and entry.word.lower() in caption.lower()
-                ),
-                None,
-            )
-        if blocked_word:
+        if caption and _contains_blocked_language(caption):
             emit("error", {"error": "Your caption contains blocked language."})
             return
 
@@ -372,6 +396,14 @@ def register_event_handlers(socketio, app, call_manager):
         }
 
         sender = User.query.get(session["user_id"])
+        now = datetime.now(timezone.utc)
+        if sender and sender.muted_until:
+            if sender.muted_until > now:
+                emit("error", {"error": "You are muted by a moderator."})
+                return
+            sender.muted_until = None
+            db.session.commit()
+
         chat_type = (data.get("chat_type") or "direct").lower()
 
         if chat_type == "group":
@@ -398,11 +430,17 @@ def register_event_handlers(socketio, app, call_manager):
                 emit("error", {"error": "This hidden group has expired."})
                 return
 
+            conversation_id = conversation_identifier_for_group(group_id)
+            nonce, ciphertext = encrypt_conversation_message(conversation_id, caption)
+
             group_message = GroupMessage(
                 group_id=group_id,
                 membership_id=membership.id,
                 alias=membership.alias,
-                text=caption,
+                text="" if ciphertext else caption,
+                ciphertext=ciphertext,
+                nonce=nonce,
+                is_encrypted=bool(ciphertext),
                 timestamp=datetime.now(timezone.utc),
             )
             db.session.add(group_message)
@@ -426,7 +464,11 @@ def register_event_handlers(socketio, app, call_manager):
             payload = {
                 "group_id": group_id,
                 "alias": membership.alias,
-                "message": caption,
+                "message": None if ciphertext else caption,
+                "ciphertext": ciphertext,
+                "nonce": nonce,
+                "is_encrypted": bool(ciphertext),
+                "conversation": conversation_id,
                 "timestamp": group_message.timestamp.isoformat(),
                 "attachments": [
                     {
@@ -434,6 +476,7 @@ def register_event_handlers(socketio, app, call_manager):
                         "storage_path": media_payload["storage_path"],
                         "duration_seconds": media_payload["duration_seconds"],
                         "mime_type": media_payload["mime_type"],
+                        "url": url_for("serve_upload", filename=media_payload["storage_path"]),
                     }
                 ],
             }
@@ -461,10 +504,16 @@ def register_event_handlers(socketio, app, call_manager):
             emit("error", {"error": "Recipient not found!"})
             return
 
+        conversation_id = conversation_identifier_for_direct(session["user_id"], recipient.id)
+        nonce, ciphertext = encrypt_conversation_message(conversation_id, caption)
+
         new_message = Message(
             user_id=session["user_id"],
             recipient_id=recipient.id,
-            text=caption,
+            text="" if ciphertext else caption,
+            ciphertext=ciphertext,
+            nonce=nonce,
+            is_encrypted=bool(ciphertext),
             timestamp=datetime.now(timezone.utc),
         )
         db.session.add(new_message)
@@ -486,9 +535,16 @@ def register_event_handlers(socketio, app, call_manager):
         db.session.commit()
 
         payload = {
+            "message_id": new_message.id,
             "username": username,
+            "sender_id": session["user_id"],
             "recipient": recipient.username,
-            "message": caption,
+            "recipient_id": recipient.id,
+            "message": None if ciphertext else caption,
+            "ciphertext": ciphertext,
+            "nonce": nonce,
+            "is_encrypted": bool(ciphertext),
+            "conversation": conversation_id,
             "timestamp": new_message.timestamp.isoformat(),
             "attachments": [
                 {
@@ -496,6 +552,7 @@ def register_event_handlers(socketio, app, call_manager):
                     "storage_path": media_payload["storage_path"],
                     "duration_seconds": media_payload["duration_seconds"],
                     "mime_type": media_payload["mime_type"],
+                    "url": url_for("serve_upload", filename=media_payload["storage_path"]),
                 }
             ],
         }
@@ -711,6 +768,9 @@ def register_event_handlers(socketio, app, call_manager):
 
         target_username = (data or {}).get("target")
         offer = (data or {}).get("offer")
+        mode = ((data or {}).get("mode") or "audio").lower()
+        if mode not in {"audio", "video"}:
+            mode = "audio"
         if not target_username:
             emit("call_error", {"error": "Select someone to call."})
             return
@@ -736,6 +796,7 @@ def register_event_handlers(socketio, app, call_manager):
                 "sessionId": session_obj.id,
                 "roomId": session_obj.room_id,
                 "recipient": callee.username,
+                "mode": mode,
             },
         )
         socketio.emit(
@@ -745,6 +806,7 @@ def register_event_handlers(socketio, app, call_manager):
                 "roomId": session_obj.room_id,
                 "caller": caller.username,
                 "offer": offer,
+                "mode": mode,
             },
             room=f"user_{callee.id}",
         )
@@ -761,6 +823,9 @@ def register_event_handlers(socketio, app, call_manager):
         session_id = (data or {}).get("sessionId")
         accepted = bool((data or {}).get("accepted"))
         answer = (data or {}).get("answer")
+        mode = ((data or {}).get("mode") or "audio").lower()
+        if mode not in {"audio", "video"}:
+            mode = "audio"
         session_obj = call_manager.get_session(session_id)
         if not session_obj:
             emit("call_error", {"error": "Call not found."})
@@ -778,7 +843,11 @@ def register_event_handlers(socketio, app, call_manager):
             else:
                 socketio.emit(
                     "call_declined",
-                    {"sessionId": session_obj.id, "roomId": session_obj.room_id},
+                    {
+                        "sessionId": session_obj.id,
+                        "roomId": session_obj.room_id,
+                        "mode": mode,
+                    },
                     room=f"user_{session_obj.caller_id}",
                 )
             return
@@ -799,6 +868,7 @@ def register_event_handlers(socketio, app, call_manager):
                 "sessionId": session_obj.id,
                 "roomId": session_obj.room_id,
                 "answer": answer,
+                "mode": mode,
             },
             room=session_obj.room_id,
         )
