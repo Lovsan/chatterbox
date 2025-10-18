@@ -42,7 +42,7 @@
 
 
 
-<body class="{% if session.get('is_admin') %}admin-glow{% endif %}" data-role="{{ 'admin' if session.get('is_admin') else 'member' }}" data-lock-timeout="{{ lock_timeout_minutes if session.get('user_id') else 0 }}" data-has-pin="{{ 1 if current_user_profile and current_user_profile.has_pin else 0 }}">
+<body data-lock-timeout="{{ lock_timeout_minutes if session.get('user_id') else 0 }}" data-has-pin="{{ 1 if current_user_profile and current_user_profile.has_pin else 0 }}">
     <header class="shadow-sm">
         <!-- Navbar -->
         <nav class="navbar navbar-expand-lg bg-body-tertiary py-3">
@@ -82,7 +82,7 @@
                         </button>
                         <!-- If user is logged in -->
                         {% if session.get("user_id") %}
-                            <div class="d-flex flex-column text-end{% if session.get('is_admin') %} admin-glow-outline{% endif %}">
+                            <div class="d-flex flex-column text-end">
                                 <span class="navbar-text">Welcome, {{ session["username"] }}</span>
                                 <div class="progress-info mt-1">
                                     <span class="badge text-bg-info" id="progress-level">Level {{ current_user_profile.level if current_user_profile else 1 }}</span>

@@ -292,3 +292,21 @@ class MarketplaceRequest(db.Model):
     requester = db.relationship("User", backref="purchase_requests")
 
     speaker = db.relationship("User", backref="translated_transcripts")
+
+
+class CallSession(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    room_id = db.Column(db.String(64), nullable=False, unique=True)
+    caller_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    callee_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    status = db.Column(db.String(20), nullable=False, default='initiated')
+    started_at = db.Column(db.DateTime, nullable=True)
+    accepted_at = db.Column(db.DateTime, nullable=True)
+    ended_at = db.Column(db.DateTime, nullable=True)
+    ended_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    terminated_by_moderator = db.Column(db.Boolean, nullable=False, default=False)
+    notes = db.Column(db.Text, nullable=True)
+
+    caller = db.relationship('User', foreign_keys=[caller_id], backref='initiated_calls')
+    callee = db.relationship('User', foreign_keys=[callee_id], backref='received_calls')
+    ended_by = db.relationship('User', foreign_keys=[ended_by_id], backref='ended_calls')
