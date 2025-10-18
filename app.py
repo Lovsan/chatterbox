@@ -1,12 +1,23 @@
 """Main Flask application for Chatterbox."""
 
+import io
+import logging
 import mimetypes
 import os
 import secrets
 import string
+import threading
+import time
 import uuid
+from decimal import Decimal, InvalidOperation
 from datetime import datetime, timedelta, timezone
+from ipaddress import ip_address
 from pathlib import Path
+
+import cv2
+import numpy as np
+import requests
+from PIL import Image
 
 from flask import (
     Flask,
@@ -47,10 +58,32 @@ from models import (
     TranslatedTranscript,
     User,
     CallSession,
+    UserProfile,
+    DisciplinaryAction,
+    MarketplaceListing,
+    EscrowTransaction,
+    MarketplaceRequest,
 )
+
+from security_utils import (
+    ConversationIdentifierError,
+    conversation_identifier_for_direct,
+    conversation_identifier_for_group,
+    export_conversation_key,
+    parse_conversation_identifier,
+)
+
+from translation_utils import TranslationError, translate_text
 
 
 app = Flask(__name__)
+
+logger = logging.getLogger(__name__)
+
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-key")
+app.config.setdefault("CONVERSATION_KEY_SECRET", os.environ.get("CONVERSATION_KEY_SECRET"))
+if not app.config.get("CONVERSATION_KEY_SECRET"):
+    app.config["CONVERSATION_KEY_SECRET"] = app.config["SECRET_KEY"]
 
 # reload templates
 app.config["TEMPLATES_AUTO_RELOAD"] = True
@@ -125,6 +158,124 @@ def get_client_country() -> str:
 LOCK_TIMEOUT_MINUTES = 6
 
 
+def _normalize_ip(candidate: str) -> str | None:
+    """Return a canonical IP address string or ``None`` when invalid."""
+
+    if not candidate:
+        return None
+    try:
+        return str(ip_address(candidate.strip()))
+    except ValueError:
+        return None
+
+
+def _load_watchlist_from_file(path: Path) -> set[str]:
+    """Load IP addresses from a local watchlist file."""
+
+    ips: set[str] = set()
+    if not path.exists():
+        return ips
+    try:
+        content = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        logger.warning("Unable to read police watchlist file %s: %s", path, exc)
+        return ips
+    for raw_line in content.splitlines():
+        line = raw_line.split("#", 1)[0].strip()
+        if not line:
+            continue
+        normalized = _normalize_ip(line)
+        if normalized:
+            ips.add(normalized)
+    return ips
+
+
+def _load_watchlist_from_url(url: str) -> set[str]:
+    """Fetch IP addresses from an external watchlist URL."""
+
+    ips: set[str] = set()
+    if not url:
+        return ips
+    try:
+        response = requests.get(url, timeout=10)
+    except requests.RequestException as exc:  # pragma: no cover - network
+        logger.warning("Police IP feed request failed for %s: %s", url, exc)
+        return ips
+    if not response.ok:
+        logger.warning(
+            "Police IP feed %s returned status %s", url, response.status_code
+        )
+        return ips
+    for raw_line in response.text.splitlines():
+        line = raw_line.split("#", 1)[0].strip()
+        if not line:
+            continue
+        normalized = _normalize_ip(line)
+        if normalized:
+            ips.add(normalized)
+    return ips
+
+
+def refresh_police_watchlist(force: bool = False) -> None:
+    """Refresh the banned IP table with the police watchlist."""
+
+    global _police_watchlist_last_sync
+
+    interval_seconds = POLICE_IP_REFRESH_INTERVAL.total_seconds()
+    now = time.monotonic()
+    with _police_watchlist_lock:
+        if (
+            not force
+            and interval_seconds > 0
+            and now - _police_watchlist_last_sync < interval_seconds
+        ):
+            return
+
+        watch_ips: set[str] = set()
+        watch_ips.update(_load_watchlist_from_file(POLICE_WATCHLIST_PATH))
+        for url in DEFAULT_POLICE_IP_FEEDS:
+            watch_ips.update(_load_watchlist_from_url(url))
+
+        if not watch_ips:
+            _police_watchlist_last_sync = now
+            return
+
+        new_entries = 0
+        for ip_value in watch_ips:
+            try:
+                exists = (
+                    BannedIP.query.filter(
+                        func.lower(BannedIP.ip_address) == ip_value.lower()
+                    ).first()
+                )
+            except OperationalError:
+                db.create_all()
+                exists = (
+                    BannedIP.query.filter(
+                        func.lower(BannedIP.ip_address) == ip_value.lower()
+                    ).first()
+                )
+            if exists:
+                continue
+            db.session.add(
+                BannedIP(
+                    ip_address=ip_value,
+                    reason="Law-enforcement watchlist auto-ban",
+                )
+            )
+            new_entries += 1
+
+        if new_entries:
+            try:
+                db.session.commit()
+            except Exception as exc:  # pragma: no cover - database error
+                db.session.rollback()
+                logger.exception("Failed to persist police watchlist bans: %s", exc)
+            else:
+                logger.info("Added %s police watchlist IP bans", new_entries)
+        _police_watchlist_last_sync = now
+
+
 @app.route("/uploads/<path:filename>")
 def serve_upload(filename: str):
     """Serve media uploads from the instance storage directory."""
@@ -155,6 +306,21 @@ def create_upload():
     if not media_category:
         return jsonify({"error": "Unsupported media type."}), 400
 
+    user = User.query.get(session["user_id"])
+    if not user:
+        return jsonify({"error": "User not found."}), 404
+
+    privilege_code = (request.form.get("privilege_code") or "").strip() or None
+    if media_category == "file" and not has_file_privilege(user, privilege_code):
+        return (
+            jsonify(
+                {
+                    "error": "File uploads are limited to elevated members or holders of a special access code.",
+                }
+            ),
+            403,
+        )
+
     duration_seconds = None
     if request.form.get("duration"):
         try:
@@ -171,9 +337,25 @@ def create_upload():
     filename = f"{uuid.uuid4().hex}{extension or ''}"
     file_path = Path(app.config["UPLOAD_FOLDER"]) / filename
 
+    blur_faces = request.form.get("blur_faces") == "1"
+
     try:
-        uploaded_file.save(file_path)
+        if media_category == "image":
+            processed_bytes, provided_mime = normalize_image_upload(
+                uploaded_file, provided_mime, blur_faces=blur_faces
+            )
+            with open(file_path, "wb") as output_handle:
+                output_handle.write(processed_bytes)
+        else:
+            uploaded_file.stream.seek(0)
+            uploaded_file.save(file_path)
+    except ValueError as exc:
+        if file_path.exists():
+            file_path.unlink(missing_ok=True)
+        return jsonify({"error": str(exc)}), 400
     except OSError:
+        if file_path.exists():
+            file_path.unlink(missing_ok=True)
         return jsonify({"error": "Unable to save uploaded file."}), 500
 
     upload_token = MediaUploadToken(
@@ -244,6 +426,34 @@ def ensure_schema() -> None:
             alter_statements.append(
                 "ALTER TABLE user ADD COLUMN is_blocked BOOLEAN NOT NULL DEFAULT 0"
             )
+        if "profile_features_enabled" not in user_columns:
+            alter_statements.append(
+                "ALTER TABLE user ADD COLUMN profile_features_enabled BOOLEAN NOT NULL DEFAULT 0"
+            )
+        if "allow_file_uploads" not in user_columns:
+            alter_statements.append(
+                "ALTER TABLE user ADD COLUMN allow_file_uploads BOOLEAN NOT NULL DEFAULT 0"
+            )
+        if "marketplace_enabled" not in user_columns:
+            alter_statements.append(
+                "ALTER TABLE user ADD COLUMN marketplace_enabled BOOLEAN NOT NULL DEFAULT 0"
+            )
+        if "created_at" not in user_columns:
+            alter_statements.append(
+                "ALTER TABLE user ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP"
+            )
+        if "muted_until" not in user_columns:
+            alter_statements.append(
+                "ALTER TABLE user ADD COLUMN muted_until DATETIME"
+            )
+        if "banned_until" not in user_columns:
+            alter_statements.append(
+                "ALTER TABLE user ADD COLUMN banned_until DATETIME"
+            )
+        if "warning_count" not in user_columns:
+            alter_statements.append(
+                "ALTER TABLE user ADD COLUMN warning_count INTEGER NOT NULL DEFAULT 0"
+            )
 
         for statement in alter_statements:
             db.session.execute(text(statement))
@@ -288,7 +498,66 @@ ALLOWED_MEDIA_TYPES = {
         "video/mp4",
         "video/ogg",
     },
+    "file": {
+        "application/pdf",
+        "application/zip",
+        "application/x-zip-compressed",
+        "application/x-7z-compressed",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-powerpoint",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "text/plain",
+    },
 }
+
+PAYMENT_METHODS = [
+    "PayPal",
+    "Stripe",
+    "Wise",
+    "Bank Transfer",
+    "MobilePay",
+    "Vipps",
+    "Cash App",
+    "Venmo",
+    "Apple Pay",
+    "Google Pay",
+    "Bitcoin",
+    "Ethereum",
+    "USDC",
+]
+
+FILE_PRIVILEGE_CODES = {
+    code.strip()
+    for code in os.environ.get("FILE_PRIVILEGE_CODES", "").split(",")
+    if code.strip()
+}
+
+MAX_IMAGE_DIMENSION = 1280
+ELEVATED_LEVEL_THRESHOLD = 3
+
+FACE_CASCADE = cv2.CascadeClassifier(
+    str(Path(cv2.data.haarcascades) / "haarcascade_frontalface_default.xml")
+)
+
+POLICE_IP_REFRESH_INTERVAL = timedelta(
+    hours=int(os.environ.get("POLICE_IP_REFRESH_HOURS", "12"))
+)
+POLICE_WATCHLIST_PATH = Path(__file__).resolve().parent / "misc" / "police_watchlist.txt"
+DEFAULT_POLICE_IP_FEEDS = [
+    url.strip()
+    for url in os.environ.get("POLICE_IP_SOURCES", "").split(",")
+    if url.strip()
+]
+if not DEFAULT_POLICE_IP_FEEDS:
+    DEFAULT_POLICE_IP_FEEDS = [
+        "https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/iblocklist_policia.netset",
+    ]
+
+_police_watchlist_lock = threading.Lock()
+_police_watchlist_last_sync = 0.0
 
 
 def categorize_mime_type(mime_type: str) -> str | None:
@@ -303,12 +572,85 @@ def categorize_mime_type(mime_type: str) -> str | None:
     return None
 
 
+def has_file_privilege(user: User | None, provided_code: str | None) -> bool:
+    """Return whether a user can upload arbitrary files."""
+
+    if not user:
+        return False
+    if user.allow_file_uploads or user.is_admin or user.is_moderator:
+        return True
+    if user.level >= ELEVATED_LEVEL_THRESHOLD:
+        return True
+    if provided_code and provided_code in FILE_PRIVILEGE_CODES:
+        return True
+    return False
+
+
+def normalize_image_upload(
+    file_storage, mime_type: str | None, blur_faces: bool = False
+) -> tuple[bytes, str]:
+    """Normalize uploaded images by stripping metadata and optionally blurring faces."""
+
+    try:
+        payload = file_storage.read()
+    except Exception as exc:  # pragma: no cover - handled gracefully
+        raise ValueError("Unable to read image payload.") from exc
+
+    if not payload:
+        raise ValueError("Empty image payload.")
+
+    try:
+        image = Image.open(io.BytesIO(payload))
+    except (OSError, ValueError) as exc:  # pragma: no cover - invalid images
+        raise ValueError("Unsupported or corrupted image data.") from exc
+
+    image = image.convert("RGB")
+    width, height = image.size
+    if width <= 0 or height <= 0:
+        raise ValueError("Invalid image dimensions.")
+
+    scale = min(MAX_IMAGE_DIMENSION / float(width), MAX_IMAGE_DIMENSION / float(height), 1.0)
+    if scale < 1.0:
+        new_size = (int(width * scale), int(height * scale))
+        image = image.resize(new_size, Image.LANCZOS)
+
+    if blur_faces and not FACE_CASCADE.empty():
+        np_image = np.array(image)
+        gray = cv2.cvtColor(np_image, cv2.COLOR_RGB2GRAY)
+        faces = FACE_CASCADE.detectMultiScale(gray, scaleFactor=1.2, minNeighbors=5)
+        for (x, y, w, h) in faces:
+            roi = np_image[y : y + h, x : x + w]
+            kernel = max(15, (max(w, h) // 6) | 1)
+            np_image[y : y + h, x : x + w] = cv2.GaussianBlur(roi, (kernel, kernel), 0)
+        image = Image.fromarray(np_image)
+
+    output = io.BytesIO()
+    image.save(output, format="JPEG", optimize=True, quality=85)
+    output.seek(0)
+    return output.read(), "image/jpeg"
+
+
+def price_to_cents(value: str) -> int:
+    """Convert a decimal string to cents."""
+
+    try:
+        quantized = Decimal(value).quantize(Decimal("0.01"))
+    except (InvalidOperation, TypeError):
+        raise ValueError("Invalid price value.")
+    cents = int(quantized * 100)
+    if cents < 0:
+        raise ValueError("Price must be positive.")
+    return cents
+
+
 @app.before_request
 def enforce_bans():
     """Prevent banned IP addresses or countries from accessing the site."""
 
     if request.endpoint and request.endpoint.startswith("static"):
         return
+
+    refresh_police_watchlist()
 
     ip_address = get_client_ip()
     country_code = get_client_country()
@@ -361,6 +703,28 @@ def enforce_bans():
             reason="Connections from your country have been blocked by an administrator.",
         ), 403
 
+    user_id = session.get("user_id")
+    if user_id:
+        user = User.query.get(user_id)
+        if user and user.banned_until:
+            if user.banned_until > datetime.now(timezone.utc):
+                session.clear()
+                return render_template(
+                    "access_denied.html",
+                    title="Account suspended",
+                    reason="Your account access is temporarily suspended by an administrator.",
+                ), 403
+            if user.banned_until <= datetime.now(timezone.utc):
+                user.banned_until = None
+                db.session.commit()
+
+
+@app.before_first_request
+def bootstrap_watchlists() -> None:
+    """Prime the police watchlist bans when the server boots."""
+
+    refresh_police_watchlist(force=True)
+
 
 @app.context_processor
 def inject_profile():
@@ -380,6 +744,13 @@ def inject_lock_settings():
     """Expose security lock settings globally."""
 
     return {"lock_timeout_minutes": LOCK_TIMEOUT_MINUTES}
+
+
+@app.context_processor
+def inject_payment_methods():
+    """Expose supported payment options to templates."""
+
+    return {"supported_payment_methods": PAYMENT_METHODS}
 
 
 @app.route("/")
@@ -412,6 +783,10 @@ def login():
         user = User.query.filter_by(username=username).first()
         if not user or not check_password_hash(user.password, password):
             flash("Invalid username or password!")
+            return redirect(url_for("login"))
+
+        if user.banned_until and user.banned_until > datetime.now(timezone.utc):
+            flash("Your account is temporarily suspended. Please contact support for assistance.")
             return redirect(url_for("login"))
 
         ip_address = get_client_ip()
@@ -498,6 +873,119 @@ def verify_pin():
     return jsonify({"success": True})
 
 
+@app.route("/api/translate", methods=["POST"])
+@login_required
+def api_translate():
+    """Translate text snippets for chat or caption workflows."""
+
+    payload = request.get_json(silent=True) or {}
+    text = (payload.get("text") or "").strip()
+    if not text:
+        return jsonify({"error": "Text is required."}), 400
+
+    target_language = (payload.get("target_language") or "en").strip()
+    source_language = (payload.get("source_language") or "auto").strip() or "auto"
+
+    try:
+        translated = translate_text(text, target_language, source_language)
+    except TranslationError as exc:
+        return jsonify({"error": str(exc)}), 500
+
+    return jsonify({"translation": translated})
+
+
+@app.route("/admin/discipline", methods=["POST"])
+@admin_required
+def admin_discipline():
+    """Allow administrators to warn, mute, or ban a user for a duration."""
+
+    payload = request.get_json(silent=True) or request.form.to_dict()
+    user_id = payload.get("user_id")
+    action_type = (payload.get("action") or "").strip().lower()
+    reason = (payload.get("reason") or "").strip() or None
+    duration_hours = payload.get("duration_hours") or payload.get("hours")
+
+    try:
+        duration_hours = int(duration_hours) if duration_hours is not None else 0
+        if duration_hours < 0:
+            raise ValueError
+    except (TypeError, ValueError):
+        duration_hours = 0
+
+    if not user_id:
+        return jsonify({"error": "User ID is required."}), 400
+
+    target_user = User.query.get(int(user_id))
+    if not target_user:
+        return jsonify({"error": "User not found."}), 404
+
+    expires_at = None
+    if duration_hours:
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=duration_hours)
+
+    if action_type == "warn":
+        target_user.warning_count += 1
+    elif action_type == "mute":
+        target_user.muted_until = expires_at
+    elif action_type == "ban":
+        target_user.banned_until = expires_at
+    else:
+        return jsonify({"error": "Unsupported action."}), 400
+
+    record = DisciplinaryAction(
+        user_id=target_user.id,
+        issued_by=session["user_id"],
+        action_type=action_type,
+        reason=reason,
+        duration_hours=duration_hours or None,
+        expires_at=expires_at,
+    )
+    db.session.add(record)
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "action": action_type,
+        "expires_at": expires_at.isoformat() if expires_at else None,
+        "warning_count": target_user.warning_count,
+    })
+
+
+@app.route("/profile/details", methods=["POST"])
+@login_required
+def update_profile_details():
+    """Allow eligible users to update extended profile information."""
+
+    user = User.query.get(session["user_id"])
+    if not user:
+        return jsonify({"error": "User not found."}), 404
+    if not (user.profile_features_enabled or user.is_admin or user.is_moderator):
+        return jsonify({"error": "Profile customization is disabled for this account."}), 403
+
+    payload = request.get_json(silent=True) or request.form.to_dict()
+    display_name = (payload.get("display_name") or "").strip()
+    bio = (payload.get("bio") or "").strip()
+    favorite_languages = (payload.get("favorite_languages") or "").strip()
+    social_links = (payload.get("social_links") or "").strip()
+    theme_color = (payload.get("theme_color") or "").strip()
+
+    profile = user.profile
+    if not profile:
+        profile = UserProfile(user_id=user.id)
+        db.session.add(profile)
+
+    profile.display_name = display_name or None
+    profile.bio = bio or None
+    profile.favorite_languages = favorite_languages or None
+    profile.social_links = social_links or None
+    profile.theme_color = theme_color or None
+    profile.updated_at = datetime.now(timezone.utc)
+
+    db.session.commit()
+
+    return jsonify({"success": True})
+
+
 @app.route("/register", methods=["GET", "POST"])
 @logout_required
 def register():
@@ -559,6 +1047,7 @@ def register():
 def chat():
     """Render the chat page with direct or group conversations."""
 
+    current_user = User.query.get(session["user_id"])
     purge_expired_groups()
     recipient_id = request.args.get("recipient_id", type=int)
     group_id = request.args.get("group_id", type=int)
@@ -574,7 +1063,12 @@ def chat():
     group_messages = []
     translated_captions = []
     call_identifier = None
-    active_hubs = CommunicationHub.query.filter_by(is_enabled=True).order_by(CommunicationHub.name.asc()).all()
+    conversation_identifier = None
+    active_hubs = (
+        CommunicationHub.query.filter_by(is_enabled=True)
+        .order_by(CommunicationHub.name.asc())
+        .all()
+    )
 
     if recipient_id:
         recipient = User.query.get(recipient_id)
@@ -591,6 +1085,7 @@ def chat():
         )
         participants = sorted([session["user_id"], recipient_id])
         call_identifier = f"direct-{participants[0]}-{participants[1]}"
+        conversation_identifier = conversation_identifier_for_direct(participants[0], participants[1])
         translated_captions = (
             TranslatedTranscript.query.filter_by(call_id=call_identifier)
             .order_by(TranslatedTranscript.created_at.asc())
@@ -618,6 +1113,7 @@ def chat():
             .all()
         )
         call_identifier = f"group-{group_id}"
+        conversation_identifier = conversation_identifier_for_group(group_id)
         translated_captions = (
             TranslatedTranscript.query.filter_by(call_id=call_identifier)
             .order_by(TranslatedTranscript.created_at.asc())
@@ -625,10 +1121,54 @@ def chat():
             .all()
         )
 
+    allow_files = False
+    marketplace_access = False
+    if current_user:
+        allow_files = (
+            current_user.allow_file_uploads
+            or current_user.is_admin
+            or current_user.is_moderator
+            or current_user.level >= ELEVATED_LEVEL_THRESHOLD
+        )
+        marketplace_access = (
+            current_user.marketplace_enabled
+            or current_user.is_admin
+            or current_user.is_moderator
+        )
+
+    now = datetime.now(timezone.utc)
+    marketplace_listings = (
+        MarketplaceListing.query.filter(
+            MarketplaceListing.is_active.is_(True),
+            (MarketplaceListing.expires_at.is_(None)) | (MarketplaceListing.expires_at >= now),
+        )
+        .order_by(MarketplaceListing.expires_at.asc().nullslast(), MarketplaceListing.view_count.desc())
+        .limit(12)
+        .all()
+    )
+    marketplace_requests = (
+        MarketplaceRequest.query.filter(
+            (MarketplaceRequest.expires_at.is_(None)) | (MarketplaceRequest.expires_at >= now)
+        )
+        .order_by(MarketplaceRequest.created_at.desc())
+        .limit(20)
+        .all()
+    )
+
+    soon_threshold = now + timedelta(hours=24)
+    for listing in marketplace_listings:
+        listing.closing_soon = bool(
+            listing.expires_at and listing.expires_at <= soon_threshold
+        )
+        listing.popular = listing.view_count >= 25
+    for request_item in marketplace_requests:
+        request_item.closing_soon = bool(
+            request_item.expires_at and request_item.expires_at <= soon_threshold
+        )
+
     return render_template(
         "chat.html",
         recipient=recipient,
-        recipient_id=recipient_id
         recipient_id=recipient_id,
         group=group,
         group_messages=group_messages,
@@ -636,6 +1176,12 @@ def chat():
         hubs=active_hubs,
         translated_captions=translated_captions,
         call_identifier=call_identifier,
+        conversation_identifier=conversation_identifier,
+        messages=messages,
+        marketplace_listings=marketplace_listings,
+        marketplace_requests=marketplace_requests,
+        allow_files=1 if allow_files else 0,
+        marketplace_access=marketplace_access,
     )
 
 
@@ -649,7 +1195,6 @@ def chat_start():
         username = (payload.get("username") or "").strip()
     else:
         username = (request.form.get("username") or "").strip()
-    username = request.form.get("username", "").strip()
 
     if not username:
         message = "Recipient username is required!"
@@ -686,16 +1231,148 @@ def chat_start():
     return redirect(url_for("chat", recipient_id=recipient.id))
 
 
+def _current_user() -> User | None:
+    user_id = session.get("user_id")
+    if not user_id:
+        return None
+    return User.query.get(user_id)
+
+
+@app.route("/marketplace/listings", methods=["POST"])
+@login_required
+def create_listing():
+    """Create a marketplace listing with escrow support."""
+
+    user = _current_user()
+    if not user or not (user.marketplace_enabled or user.is_admin or user.is_moderator):
+        return jsonify({"error": "Marketplace access is disabled for this account."}), 403
+
+    payload = request.get_json(silent=True) or request.form.to_dict()
+    title = (payload.get("title") or "").strip()
+    description = (payload.get("description") or "").strip()
+    currency = (payload.get("currency") or "USD").strip().upper()[:10]
+    price_value = (payload.get("price") or payload.get("price_cents") or "").strip()
+    expires_at_value = (payload.get("expires_at") or "").strip()
+
+    if not title or not description:
+        return jsonify({"error": "Title and description are required."}), 400
+
+    try:
+        price_cents = (
+            int(price_value)
+            if price_value.isdigit()
+            else price_to_cents(price_value)
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    expires_at = None
+    if expires_at_value:
+        try:
+            expires_at = datetime.fromisoformat(expires_at_value)
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+            expires_at = expires_at.astimezone(timezone.utc)
+        except ValueError:
+            return jsonify({"error": "Invalid expiry date."}), 400
+
+    listing = MarketplaceListing(
+        seller_id=user.id,
+        title=title,
+        description=description,
+        price_cents=price_cents,
+        currency=currency,
+        expires_at=expires_at,
+    )
+    db.session.add(listing)
+    db.session.commit()
+
+    return jsonify({"success": True, "listing_id": listing.id})
+
+
+@app.route("/marketplace/requests", methods=["POST"])
+@login_required
+def create_marketplace_request():
+    """Allow users to post purchase requests."""
+
+    user = _current_user()
+    if not user:
+        return jsonify({"error": "Authentication required."}), 401
+
+    payload = request.get_json(silent=True) or request.form.to_dict()
+    title = (payload.get("title") or "").strip()
+    description = (payload.get("description") or "").strip()
+    budget_value = (payload.get("budget") or "").strip()
+    expires_at_value = (payload.get("expires_at") or "").strip()
+
+    if not title or not description:
+        return jsonify({"error": "Title and description are required."}), 400
+
+    budget_cents = None
+    if budget_value:
+        try:
+            budget_cents = price_to_cents(budget_value)
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+
+    expires_at = None
+    if expires_at_value:
+        try:
+            expires_at = datetime.fromisoformat(expires_at_value)
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+            expires_at = expires_at.astimezone(timezone.utc)
+        except ValueError:
+            return jsonify({"error": "Invalid expiry date."}), 400
+
+    purchase_request = MarketplaceRequest(
+        requester_id=user.id,
+        title=title,
+        description=description,
+        budget_cents=budget_cents,
+        expires_at=expires_at,
+    )
+    db.session.add(purchase_request)
+    db.session.commit()
+
+    return jsonify({"success": True, "request_id": purchase_request.id})
+
+
+@app.route("/marketplace/escrow/<int:listing_id>", methods=["POST"])
+@login_required
+def start_escrow(listing_id: int):
+    """Initiate an escrow transaction for a listing."""
+
+    user = _current_user()
+    if not user:
+        return jsonify({"error": "Authentication required."}), 401
+
+    listing = MarketplaceListing.query.get(listing_id)
+    if not listing or not listing.is_active:
+        return jsonify({"error": "Listing not available."}), 404
+
+    payload = request.get_json(silent=True) or request.form.to_dict()
+    payment_method = (payload.get("payment_method") or "").strip()
+    if payment_method and payment_method not in PAYMENT_METHODS:
+        return jsonify({"error": "Unsupported payment method."}), 400
+
+    transaction = EscrowTransaction(
+        listing_id=listing.id,
+        buyer_id=user.id,
+        amount_cents=listing.price_cents,
+        payment_method=payment_method or None,
+    )
+    db.session.add(transaction)
+    db.session.commit()
+
+    return jsonify({"success": True, "escrow_id": transaction.id})
+
+
 @app.route("/chat/user-list")
 @login_required
 def user_list():
     """Return the list of users the current user chatted with."""
 
-    # Create a list of dictionaries containing user id and username
-    users = [{'id': user.id, 'username': user.username} for user, _ in recent_users]
-
-    # Return the list of users as a JSON response
-    return jsonify({'users': users})
     recent_users = (
         db.session.query(User, func.max(Message.timestamp).label("last_message_time"))
         .join(Message, (Message.user_id == User.id) | (Message.recipient_id == User.id))
@@ -706,8 +1383,60 @@ def user_list():
         .all()
     )
 
-    users = [{"id": user.id, "username": user.username} for user, _ in recent_users]
+    users = [
+        {
+            "id": user.id,
+            "username": user.username,
+            "is_admin": bool(user.is_admin),
+            "is_moderator": bool(user.is_moderator),
+        }
+        for user, _ in recent_users
+    ]
     return jsonify({"users": users})
+
+
+@app.route("/api/conversations/key")
+@login_required
+def conversation_key():
+    """Return a symmetric key for encrypting and decrypting conversation payloads."""
+
+    conversation = (request.args.get("conversation") or "").strip()
+    if not conversation:
+        return jsonify({"error": "Conversation identifier is required."}), 400
+
+    try:
+        conversation_type, participants = parse_conversation_identifier(conversation)
+    except ConversationIdentifierError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    user_id = session.get("user_id")
+    normalized_identifier = None
+
+    if conversation_type == "direct":
+        if user_id not in participants:
+            return jsonify({"error": "You are not part of this conversation."}), 403
+        other_id = participants[0] if participants[1] == user_id else participants[1]
+        other_user = User.query.get(other_id)
+        if not other_user:
+            return jsonify({"error": "Recipient not found."}), 404
+        normalized_identifier = conversation_identifier_for_direct(participants[0], participants[1])
+    elif conversation_type == "group":
+        group_id = participants[0]
+        membership = GroupMembership.query.filter_by(group_id=group_id, user_id=user_id).first()
+        if not membership:
+            return jsonify({"error": "You are not part of this conversation."}), 403
+        normalized_identifier = conversation_identifier_for_group(group_id)
+    else:
+        return jsonify({"error": "Unsupported conversation type."}), 400
+
+    key_b64 = export_conversation_key(normalized_identifier)
+    return jsonify(
+        {
+            "conversation": normalized_identifier,
+            "key": key_b64,
+            "algorithm": "AES-GCM",
+        }
+    )
 
 
 @app.route("/groups/create", methods=["POST"])

@@ -1,7 +1,87 @@
+const THEME_STORAGE_KEY = "chatterbox-theme";
+const prefersDarkScheme = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+
+function applyThemePreference(theme) {
+    if (!theme) {
+        return;
+    }
+    document.documentElement.setAttribute("data-theme", theme);
+    document.documentElement.setAttribute("data-bs-theme", theme);
+}
+
+function getStoredThemePreference() {
+    try {
+        return window.localStorage.getItem(THEME_STORAGE_KEY);
+    } catch (error) {
+        console.warn("Unable to access theme preference from storage.", error);
+        return null;
+    }
+}
+
+function storeThemePreference(theme) {
+    try {
+        window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch (error) {
+        console.warn("Unable to persist theme preference.", error);
+    }
+}
+
+function getPreferredTheme() {
+    const stored = getStoredThemePreference();
+    if (stored) {
+        return stored;
+    }
+    return prefersDarkScheme && prefersDarkScheme.matches ? "dark" : "light";
+}
+
+function updateThemeToggle(theme) {
+    const toggle = document.querySelector("[data-theme-toggle]");
+    if (!toggle) {
+        return;
+    }
+    const isDark = theme === "dark";
+    const label = isDark ? "Switch to light theme" : "Switch to dark theme";
+    toggle.setAttribute("aria-pressed", String(isDark));
+    toggle.setAttribute("aria-label", label);
+    toggle.setAttribute("title", label);
+}
+
+function initializeThemeControls() {
+    const initialTheme = getPreferredTheme();
+    applyThemePreference(initialTheme);
+    updateThemeToggle(initialTheme);
+
+    const toggle = document.querySelector("[data-theme-toggle]");
+    if (toggle) {
+        toggle.addEventListener("click", () => {
+            const currentTheme = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+            const nextTheme = currentTheme === "dark" ? "light" : "dark";
+            storeThemePreference(nextTheme);
+            applyThemePreference(nextTheme);
+            updateThemeToggle(nextTheme);
+        });
+    }
+
+    if (prefersDarkScheme) {
+        prefersDarkScheme.addEventListener("change", (event) => {
+            if (getStoredThemePreference()) {
+                return;
+            }
+            const systemTheme = event.matches ? "dark" : "light";
+            applyThemePreference(systemTheme);
+            updateThemeToggle(systemTheme);
+        });
+    }
+}
+
 class ChatTabs {
     constructor(rootElement) {
         this.rootElement = rootElement;
         this.currentUser = rootElement ? rootElement.dataset.currentUser : null;
+        this.currentUserId = rootElement && rootElement.dataset.currentUserId
+            ? Number(rootElement.dataset.currentUserId)
+            : null;
+        this.allowFiles = Boolean(rootElement && rootElement.dataset.allowFiles === '1');
         this.tabList = document.getElementById("chat-tabs");
         this.tabContent = document.getElementById("chat-tab-content");
         this.emptyState = document.getElementById("chat-empty-state");
@@ -111,6 +191,10 @@ class ChatTabs {
         form.dataset.username = this.currentUser || "";
         form.dataset.recipient = conversation.name;
         form.dataset.conversationKey = key;
+        if (this.currentUserId) {
+            form.dataset.currentUserId = String(this.currentUserId);
+        }
+        form.dataset.allowFiles = this.allowFiles ? '1' : '0';
 
         const inputGroup = document.createElement("div");
         inputGroup.className = "input-group";
@@ -407,6 +491,7 @@ function refreshUserList(activeKey) {
         .catch(error => console.error("Error fetching user list:", error));
 // Ensure that the document is fully loaded before running the script
 document.addEventListener("DOMContentLoaded", function() {
+    initializeThemeControls();
     const chatBox = document.getElementById("chat-box");
     if (chatBox) {
         chatBox.scrollTop = chatBox.scrollHeight;
@@ -424,6 +509,9 @@ document.addEventListener("DOMContentLoaded", function() {
 
     initializeSecurityLock();
     initializeMediaControls();
+    initializeMessageUtilities();
+    initializeProfileForm();
+    initializeMarketplaceForms();
 });
 
 function refreshUserList() {
@@ -453,10 +541,26 @@ function refreshUserList() {
                 const aElement = document.createElement("a");
                 aElement.href = `/chat?recipient_id=${user.id}`;
                 aElement.classList.add("text-decoration-none", "d-flex", "justify-content-between", "align-items-center");
-                aElement.innerHTML = `<span>${user.username}</span>`;
+                const usernameLabel = document.createElement('span');
+                usernameLabel.textContent = user.username;
+                if (user.is_admin) {
+                    usernameLabel.classList.add('admin-glow');
+                    usernameLabel.title = 'Administrator';
+                } else if (user.is_moderator) {
+                    usernameLabel.classList.add('moderator-highlight');
+                    usernameLabel.title = 'Moderator';
+                }
+                aElement.appendChild(usernameLabel);
 
-                if (user.id == recipientId) {
-                    aElement.classList.add("active");
+                if (user.is_admin || user.is_moderator) {
+                    const badge = document.createElement('span');
+                    badge.classList.add('badge', user.is_admin ? 'text-bg-warning' : 'text-bg-info', 'ms-2');
+                    badge.textContent = user.is_admin ? 'Admin' : 'Mod';
+                    aElement.appendChild(badge);
+                }
+
+                if (String(user.id) === recipientId) {
+                    liElement.classList.add('active');
                 }
 
                 liElement.appendChild(aElement);
@@ -660,6 +764,13 @@ function initializeMediaControls() {
     const videoButton = document.getElementById('video-record-btn');
     const clearButton = document.getElementById('attachment-clear-btn');
     const fileInput = document.getElementById('attachment-file-input');
+    const blurFacesToggle = document.getElementById('blur-faces-toggle');
+    const privilegeInput = document.getElementById('privilege-code-input');
+    const allowFiles = Boolean(messageForm && messageForm.dataset.allowFiles === '1');
+
+    if (fileInput) {
+        fileInput.accept = allowFiles ? '' : 'image/*,audio/*,video/*';
+    }
 
     if (!messageForm) {
         window.chatAttachmentState = {
@@ -748,6 +859,12 @@ function initializeMediaControls() {
         if (typeof durationSeconds === 'number' && !Number.isNaN(durationSeconds)) {
             formData.append('duration', String(durationSeconds));
         }
+        if (blurFacesToggle && blurFacesToggle.checked) {
+            formData.append('blur_faces', '1');
+        }
+        if (privilegeInput && privilegeInput.value.trim()) {
+            formData.append('privilege_code', privilegeInput.value.trim());
+        }
 
         setUploading(true);
         fetch('/api/uploads', {
@@ -783,6 +900,11 @@ function initializeMediaControls() {
         fileInput.addEventListener('change', (event) => {
             const file = event.target.files ? event.target.files[0] : null;
             if (!file) {
+                return;
+            }
+            if (!allowFiles && file.type && !/^image\//.test(file.type) && !/^audio\//.test(file.type) && !/^video\//.test(file.type)) {
+                alert('Only images, audio, or video may be uploaded by your account.');
+                fileInput.value = '';
                 return;
             }
             uploadBlob(file, file.type, null);
@@ -859,6 +981,288 @@ function initializeMediaControls() {
         videoButton.addEventListener('click', () => beginRecording('video'));
         videoButton.dataset.defaultLabel = videoButton.textContent.trim() || 'Video Clip';
     }
+}
+
+function insertEmojiAtCursor(input, emoji) {
+    if (!input) {
+        return;
+    }
+    const start = input.selectionStart ?? input.value.length;
+    const end = input.selectionEnd ?? input.value.length;
+    const before = input.value.slice(0, start);
+    const after = input.value.slice(end);
+    input.value = `${before}${emoji}${after}`;
+    const newPosition = start + emoji.length;
+    if (typeof input.setSelectionRange === 'function') {
+        input.setSelectionRange(newPosition, newPosition);
+    }
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function initializeEmojiPicker(messageInput) {
+    const emojiButton = document.getElementById('emoji-button');
+    const emojiPanel = document.getElementById('emoji-panel');
+    if (!emojiButton || !emojiPanel || !messageInput) {
+        return;
+    }
+    const emojis = ['😀', '😂', '🥳', '😍', '😎', '🤩', '🙌', '🔥', '🌟', '🚀', '🎉', '❤️', '👍', '🙏', '🤝', '🤖', '🛒', '💡', '🍀', '🎮'];
+    emojiPanel.innerHTML = '';
+    emojis.forEach((emoji) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'btn btn-emoji';
+        button.textContent = emoji;
+        button.addEventListener('click', () => {
+            insertEmojiAtCursor(messageInput, emoji);
+            emojiPanel.classList.add('d-none');
+            messageInput.focus();
+        });
+        emojiPanel.appendChild(button);
+    });
+
+    emojiButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        emojiPanel.classList.toggle('d-none');
+        if (!emojiPanel.classList.contains('d-none')) {
+            messageInput.focus();
+        }
+    });
+
+    document.addEventListener('click', (event) => {
+        if (!emojiPanel.contains(event.target) && event.target !== emojiButton) {
+            emojiPanel.classList.add('d-none');
+        }
+    });
+}
+
+function initializeMessageUtilities() {
+    const messageInput = document.getElementById('message-input');
+    if (!messageInput) {
+        return;
+    }
+
+    initializeEmojiPicker(messageInput);
+
+    const translateButton = document.getElementById('translate-message-btn');
+    if (translateButton) {
+        translateButton.addEventListener('click', () => {
+            const text = messageInput.value.trim();
+            if (!text) {
+                return;
+            }
+            const targetLanguage = (window.prompt('Translate message into (language code):', 'en') || '').trim();
+            if (!targetLanguage) {
+                return;
+            }
+            translateButton.disabled = true;
+            fetch('/api/translate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text, target_language: targetLanguage }),
+            })
+                .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
+                .then(({ ok, data }) => {
+                    if (ok && data.translation) {
+                        messageInput.value = data.translation;
+                        messageInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        messageInput.focus();
+                    } else {
+                        alert((data && data.error) || 'Translation failed.');
+                    }
+                })
+                .catch(() => {
+                    alert('Translation request failed.');
+                })
+                .finally(() => {
+                    translateButton.disabled = false;
+                });
+        });
+    }
+
+    const dictationButton = document.getElementById('speech-dictation-btn');
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+    if (dictationButton) {
+        dictationButton.dataset.defaultLabel = dictationButton.textContent.trim() || 'Dictate';
+        if (!SpeechRecognition) {
+            dictationButton.disabled = true;
+            dictationButton.title = 'Speech recognition is not supported in this browser.';
+        } else {
+            let recognition = null;
+            let recognizing = false;
+            dictationButton.addEventListener('click', () => {
+                if (recognizing && recognition) {
+                    recognition.stop();
+                    return;
+                }
+                recognition = new SpeechRecognition();
+                recognition.lang = 'en-US';
+                recognition.interimResults = false;
+                recognition.maxAlternatives = 1;
+                recognition.addEventListener('result', (event) => {
+                    const transcript = event.results && event.results[0] && event.results[0][0]
+                        ? event.results[0][0].transcript
+                        : '';
+                    if (transcript) {
+                        const trimmed = transcript.trim();
+                        messageInput.value = messageInput.value
+                            ? `${messageInput.value} ${trimmed}`.trim()
+                            : trimmed;
+                        messageInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                });
+                const resetState = () => {
+                    recognizing = false;
+                    dictationButton.classList.remove('btn-danger');
+                    dictationButton.textContent = dictationButton.dataset.defaultLabel || 'Dictate';
+                    recognition = null;
+                };
+                recognition.addEventListener('end', resetState);
+                recognition.addEventListener('error', () => {
+                    resetState();
+                    alert('Speech dictation failed. Please try again.');
+                });
+                recognizing = true;
+                dictationButton.classList.add('btn-danger');
+                dictationButton.textContent = 'Stop Dictation';
+                recognition.start();
+            });
+        }
+    }
+}
+
+function initializeProfileForm() {
+    const profileForm = document.getElementById('profile-details-form');
+    if (!profileForm) {
+        return;
+    }
+    profileForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const formData = new FormData(profileForm);
+        const payload = Object.fromEntries(formData.entries());
+        profileForm.classList.add('is-loading');
+        fetch('/profile/details', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        })
+            .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
+            .then(({ ok, data }) => {
+                if (ok && data.success) {
+                    alert('Profile saved successfully.');
+                } else {
+                    alert((data && data.error) || 'Unable to save profile.');
+                }
+            })
+            .catch(() => {
+                alert('Profile update failed.');
+            })
+            .finally(() => {
+                profileForm.classList.remove('is-loading');
+            });
+    });
+}
+
+function initializeMarketplaceForms() {
+    const listingForm = document.getElementById('marketplace-listing-form');
+    const requestForm = document.getElementById('marketplace-request-form');
+    const marketplaceSection = document.getElementById('marketplace-section');
+    const paymentMethods = marketplaceSection && marketplaceSection.dataset.paymentMethods
+        ? marketplaceSection.dataset.paymentMethods.split(',').map((method) => method.trim()).filter(Boolean)
+        : [];
+
+    if (listingForm) {
+        listingForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const formData = new FormData(listingForm);
+            const payload = Object.fromEntries(formData.entries());
+            listingForm.classList.add('is-loading');
+            fetch('/marketplace/listings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            })
+                .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
+                .then(({ ok, data }) => {
+                    if (ok && data.success) {
+                        listingForm.reset();
+                        alert('Listing published! Reload to see it in the feed.');
+                    } else {
+                        alert((data && data.error) || 'Unable to create listing.');
+                    }
+                })
+                .catch(() => {
+                    alert('Listing request failed.');
+                })
+                .finally(() => {
+                    listingForm.classList.remove('is-loading');
+                });
+        });
+    }
+
+    if (requestForm) {
+        requestForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const formData = new FormData(requestForm);
+            const payload = Object.fromEntries(formData.entries());
+            requestForm.classList.add('is-loading');
+            fetch('/marketplace/requests', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            })
+                .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
+                .then(({ ok, data }) => {
+                    if (ok && data.success) {
+                        requestForm.reset();
+                        alert('Request posted! Reload to share it with others.');
+                    } else {
+                        alert((data && data.error) || 'Unable to post request.');
+                    }
+                })
+                .catch(() => {
+                    alert('Request submission failed.');
+                })
+                .finally(() => {
+                    requestForm.classList.remove('is-loading');
+                });
+        });
+    }
+
+    document.querySelectorAll('[data-start-escrow]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const listingId = button.dataset.startEscrow;
+            if (!listingId) {
+                return;
+            }
+            let paymentMethod = '';
+            if (paymentMethods.length) {
+                paymentMethod = (window.prompt(`Preferred payment method (${paymentMethods.join(', ')}):`, paymentMethods[0]) || '').trim();
+                if (!paymentMethod) {
+                    return;
+                }
+            }
+            button.disabled = true;
+            fetch(`/marketplace/escrow/${listingId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ payment_method: paymentMethod }),
+            })
+                .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
+                .then(({ ok, data }) => {
+                    if (ok && data.success) {
+                        alert('Escrow opened! The seller will be notified.');
+                    } else {
+                        alert((data && data.error) || 'Unable to start escrow.');
+                    }
+                })
+                .catch(() => {
+                    alert('Escrow request failed.');
+                })
+                .finally(() => {
+                    button.disabled = false;
+                });
+        });
+    });
 }
 
 function initializeSecurityLock() {
