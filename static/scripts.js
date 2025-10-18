@@ -1,3 +1,79 @@
+const THEME_STORAGE_KEY = "chatterbox-theme";
+const prefersDarkScheme = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+
+function applyThemePreference(theme) {
+    if (!theme) {
+        return;
+    }
+    document.documentElement.setAttribute("data-theme", theme);
+    document.documentElement.setAttribute("data-bs-theme", theme);
+}
+
+function getStoredThemePreference() {
+    try {
+        return window.localStorage.getItem(THEME_STORAGE_KEY);
+    } catch (error) {
+        console.warn("Unable to access theme preference from storage.", error);
+        return null;
+    }
+}
+
+function storeThemePreference(theme) {
+    try {
+        window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch (error) {
+        console.warn("Unable to persist theme preference.", error);
+    }
+}
+
+function getPreferredTheme() {
+    const stored = getStoredThemePreference();
+    if (stored) {
+        return stored;
+    }
+    return prefersDarkScheme && prefersDarkScheme.matches ? "dark" : "light";
+}
+
+function updateThemeToggle(theme) {
+    const toggle = document.querySelector("[data-theme-toggle]");
+    if (!toggle) {
+        return;
+    }
+    const isDark = theme === "dark";
+    const label = isDark ? "Switch to light theme" : "Switch to dark theme";
+    toggle.setAttribute("aria-pressed", String(isDark));
+    toggle.setAttribute("aria-label", label);
+    toggle.setAttribute("title", label);
+}
+
+function initializeThemeControls() {
+    const initialTheme = getPreferredTheme();
+    applyThemePreference(initialTheme);
+    updateThemeToggle(initialTheme);
+
+    const toggle = document.querySelector("[data-theme-toggle]");
+    if (toggle) {
+        toggle.addEventListener("click", () => {
+            const currentTheme = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+            const nextTheme = currentTheme === "dark" ? "light" : "dark";
+            storeThemePreference(nextTheme);
+            applyThemePreference(nextTheme);
+            updateThemeToggle(nextTheme);
+        });
+    }
+
+    if (prefersDarkScheme) {
+        prefersDarkScheme.addEventListener("change", (event) => {
+            if (getStoredThemePreference()) {
+                return;
+            }
+            const systemTheme = event.matches ? "dark" : "light";
+            applyThemePreference(systemTheme);
+            updateThemeToggle(systemTheme);
+        });
+    }
+}
+
 class ChatTabs {
     constructor(rootElement) {
         this.rootElement = rootElement;
@@ -407,6 +483,7 @@ function refreshUserList(activeKey) {
         .catch(error => console.error("Error fetching user list:", error));
 // Ensure that the document is fully loaded before running the script
 document.addEventListener("DOMContentLoaded", function() {
+    initializeThemeControls();
     const chatBox = document.getElementById("chat-box");
     if (chatBox) {
         chatBox.scrollTop = chatBox.scrollHeight;
