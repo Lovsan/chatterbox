@@ -90,6 +90,7 @@
                                 </div>
                             </div>
                             <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#pinModal">Security</button>
+                            <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#emergencyDeleteModal" title="Emergency chat deletion">🚨</button>
                             <a href="{{ url_for('logout') }}" class="btn btn-outline-primary">Logout</a>
                         <!-- If user is not logged in -->
                         {% else %}
@@ -181,6 +182,104 @@
                     <button type="submit" class="btn btn-primary btn-lg w-100">Unlock</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <div class="modal fade" id="emergencyDeleteModal" tabindex="-1" aria-labelledby="emergencyDeleteModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content bg-dark text-white border-danger">
+                <div class="modal-header border-danger bg-danger bg-opacity-10">
+                    <h5 class="modal-title" id="emergencyDeleteModalLabel">🚨 Emergency Chat Deletion</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger" role="alert">
+                        <strong>⚠️ Warning:</strong> This action permanently deletes selected chat messages and cannot be undone. Use this feature only in emergency situations.
+                    </div>
+                    
+                    {% if not current_user_profile or not current_user_profile.has_pin %}
+                    <div class="alert alert-warning" role="alert">
+                        <strong>PIN Required:</strong> You must set up a security PIN before using this feature. Click the "Security" button to create one.
+                    </div>
+                    {% else %}
+                    
+                    <div id="emergency-delete-step-1" class="emergency-delete-step">
+                        <h6 class="mb-3">Step 1: Select Conversations to Delete</h6>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="radio" name="delete-type" id="delete-type-selected" value="selected" checked>
+                            <label class="form-check-label" for="delete-type-selected">
+                                Delete selected conversations (recommended)
+                            </label>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="radio" name="delete-type" id="delete-type-all" value="all">
+                            <label class="form-check-label text-danger" for="delete-type-all">
+                                Delete ALL conversations (extreme caution)
+                            </label>
+                        </div>
+                        
+                        <div id="conversation-selection" class="mt-3">
+                            <p class="text-muted small mb-2">Loading conversations...</p>
+                            <div id="conversation-list" class="list-group" style="max-height: 300px; overflow-y: auto;">
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="button" class="btn btn-danger" id="emergency-delete-next-btn" disabled>
+                                Continue to Verification
+                            </button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        </div>
+                    </div>
+                    
+                    <div id="emergency-delete-step-2" class="emergency-delete-step d-none">
+                        <h6 class="mb-3">Step 2: Verify with Your PIN</h6>
+                        <p class="text-muted small mb-3">Enter your 4-digit security PIN to confirm deletion.</p>
+                        
+                        <div id="emergency-delete-summary" class="alert alert-info mb-3">
+                        </div>
+                        
+                        <div id="emergency-delete-error" class="alert alert-danger d-none mb-3"></div>
+                        
+                        <form id="emergency-delete-form">
+                            <div class="mb-3">
+                                <label for="emergency-delete-pin" class="form-label">Security PIN</label>
+                                <input type="password" id="emergency-delete-pin" class="form-control form-control-lg text-center" maxlength="4" pattern="\d{4}" inputmode="numeric" placeholder="••••" required>
+                            </div>
+                            
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="emergency-delete-confirm" required>
+                                <label class="form-check-label text-danger" for="emergency-delete-confirm">
+                                    I understand this action is permanent and cannot be undone
+                                </label>
+                            </div>
+                            
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-danger" id="emergency-delete-submit-btn">
+                                    <span class="emergency-delete-btn-text">Delete Permanently</span>
+                                    <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                                </button>
+                                <button type="button" class="btn btn-secondary" id="emergency-delete-back-btn">Back</button>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <div id="emergency-delete-step-3" class="emergency-delete-step d-none">
+                        <div class="text-center py-4">
+                            <div class="mb-3">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" class="bi bi-check-circle-fill text-success" viewBox="0 0 16 16">
+                                    <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0m-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+                                </svg>
+                            </div>
+                            <h5 class="text-success mb-3">Deletion Complete</h5>
+                            <p id="emergency-delete-result" class="text-muted"></p>
+                            <button type="button" class="btn btn-primary mt-3" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                    
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
     {% endif %}

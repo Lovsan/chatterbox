@@ -873,6 +873,105 @@ def verify_pin():
     return jsonify({"success": True})
 
 
+@app.route("/security/emergency-delete", methods=["POST"])
+@login_required
+def emergency_delete_chats():
+    """Emergency deletion of user's chat conversations with PIN verification."""
+
+    payload = request.get_json(silent=True) or {}
+    pin = (payload.get("pin") or "").strip()
+    chat_ids = payload.get("chat_ids", [])
+    delete_type = payload.get("delete_type", "selected")  # 'selected' or 'all'
+    
+    user = User.query.get(session["user_id"])
+    if not user:
+        return jsonify({"success": False, "message": "User not found."}), 404
+    
+    # Verify PIN
+    if not user.pin_hash:
+        return jsonify({"success": False, "message": "Please set up a PIN first."}), 403
+    if not pin:
+        return jsonify({"success": False, "message": "PIN is required."}), 400
+    if not check_password_hash(user.pin_hash, pin):
+        return jsonify({"success": False, "message": "Incorrect PIN."}), 403
+    
+    deleted_count = 0
+    
+    try:
+        if delete_type == "all":
+            # Delete all direct messages
+            direct_messages = Message.query.filter(
+                (Message.user_id == user.id) | (Message.recipient_id == user.id)
+            ).all()
+            for msg in direct_messages:
+                db.session.delete(msg)
+            deleted_count = len(direct_messages)
+            
+            # Delete all group messages from groups user is in
+            user_memberships = GroupMembership.query.filter_by(user_id=user.id).all()
+            for membership in user_memberships:
+                group_messages = GroupMessage.query.filter_by(membership_id=membership.id).all()
+                for msg in group_messages:
+                    db.session.delete(msg)
+                deleted_count += len(group_messages)
+        
+        elif delete_type == "selected" and chat_ids:
+            for chat_id in chat_ids:
+                # Parse chat_id format: "direct:{user_id}" or "group:{group_id}"
+                chat_parts = str(chat_id).split(":", 1)
+                if len(chat_parts) != 2:
+                    continue
+                    
+                chat_type, target_id = chat_parts
+                
+                if chat_type == "direct":
+                    # Delete direct messages with this user
+                    try:
+                        recipient_id = int(target_id)
+                        messages = Message.query.filter(
+                            ((Message.user_id == user.id) & (Message.recipient_id == recipient_id)) |
+                            ((Message.user_id == recipient_id) & (Message.recipient_id == user.id))
+                        ).all()
+                        for msg in messages:
+                            db.session.delete(msg)
+                        deleted_count += len(messages)
+                    except (ValueError, TypeError):
+                        continue
+                        
+                elif chat_type == "group":
+                    # Delete group messages from this group
+                    try:
+                        group_id = int(target_id)
+                        membership = GroupMembership.query.filter_by(
+                            user_id=user.id, group_id=group_id
+                        ).first()
+                        if membership:
+                            group_messages = GroupMessage.query.filter_by(
+                                membership_id=membership.id
+                            ).all()
+                            for msg in group_messages:
+                                db.session.delete(msg)
+                            deleted_count += len(group_messages)
+                    except (ValueError, TypeError):
+                        continue
+        
+        db.session.commit()
+        
+        return jsonify({
+            "success": True,
+            "message": f"Successfully deleted {deleted_count} message(s).",
+            "deleted_count": deleted_count
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.exception("Emergency deletion failed: %s", e)
+        return jsonify({
+            "success": False,
+            "message": "Deletion failed. Please try again."
+        }), 500
+
+
 @app.route("/api/translate", methods=["POST"])
 @login_required
 def api_translate():
@@ -1867,6 +1966,76 @@ def open_conversations():
         }
 
     return jsonify({"conversations": list(conversations.values())})
+
+
+@app.route("/chat/all-conversations")
+@login_required
+def all_conversations():
+    """Return all conversations (direct and group) for emergency deletion selection."""
+
+    current_user_id = session["user_id"]
+    all_convos = []
+    
+    # Get direct message conversations
+    messages = Message.query.filter(
+        (Message.user_id == current_user_id) | (Message.recipient_id == current_user_id)
+    ).order_by(Message.timestamp.desc()).all()
+    
+    seen_users = set()
+    for message in messages:
+        other_id = message.recipient_id if message.user_id == current_user_id else message.user_id
+        if other_id in seen_users:
+            continue
+        seen_users.add(other_id)
+        
+        other_user = message.recipient if message.user_id == current_user_id else message.sender
+        if not other_user:
+            other_user = User.query.get(other_id)
+        if not other_user:
+            continue
+            
+        # Count messages in this conversation
+        msg_count = Message.query.filter(
+            ((Message.user_id == current_user_id) & (Message.recipient_id == other_id)) |
+            ((Message.user_id == other_id) & (Message.recipient_id == current_user_id))
+        ).count()
+        
+        all_convos.append({
+            "id": f"direct:{other_user.id}",
+            "type": "direct",
+            "name": other_user.username,
+            "message_count": msg_count,
+            "last_timestamp": message.timestamp.isoformat() if message.timestamp else None
+        })
+    
+    # Get group conversations
+    memberships = GroupMembership.query.filter_by(user_id=current_user_id).all()
+    for membership in memberships:
+        group = membership.group
+        if not group:
+            continue
+            
+        # Count messages in this group
+        msg_count = GroupMessage.query.filter_by(membership_id=membership.id).count()
+        
+        # Get last message timestamp
+        last_msg = GroupMessage.query.filter_by(
+            group_id=group.id
+        ).order_by(GroupMessage.timestamp.desc()).first()
+        
+        all_convos.append({
+            "id": f"group:{group.id}",
+            "type": "group",
+            "name": group.name,
+            "alias": membership.alias,
+            "message_count": msg_count,
+            "last_timestamp": last_msg.timestamp.isoformat() if last_msg and last_msg.timestamp else None
+        })
+    
+    # Sort by last timestamp
+    all_convos.sort(key=lambda x: x.get("last_timestamp") or "", reverse=True)
+    
+    return jsonify({"conversations": all_convos})
 
 
 @app.route("/chat/conversation/<int:partner_id>/messages")

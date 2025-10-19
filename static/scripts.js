@@ -1384,3 +1384,216 @@ function initializeSecurityLock() {
 
     scheduleLock();
 }
+
+// Emergency Chat Deletion Feature
+function initializeEmergencyDeletion() {
+    const modal = document.getElementById("emergencyDeleteModal");
+    if (!modal) return;
+
+    const step1 = document.getElementById("emergency-delete-step-1");
+    const step2 = document.getElementById("emergency-delete-step-2");
+    const step3 = document.getElementById("emergency-delete-step-3");
+    const conversationList = document.getElementById("conversation-list");
+    const conversationSelection = document.getElementById("conversation-selection");
+    const nextBtn = document.getElementById("emergency-delete-next-btn");
+    const backBtn = document.getElementById("emergency-delete-back-btn");
+    const form = document.getElementById("emergency-delete-form");
+    const submitBtn = document.getElementById("emergency-delete-submit-btn");
+    const errorDiv = document.getElementById("emergency-delete-error");
+    const summaryDiv = document.getElementById("emergency-delete-summary");
+    const resultDiv = document.getElementById("emergency-delete-result");
+
+    let conversations = [];
+    let selectedChatIds = new Set();
+    let deleteType = "selected";
+
+    // Load conversations when modal is opened
+    modal.addEventListener("show.bs.modal", () => {
+        resetModal();
+        loadConversations();
+    });
+
+    // Radio button change handler
+    document.querySelectorAll('input[name="delete-type"]').forEach((radio) => {
+        radio.addEventListener("change", (e) => {
+            deleteType = e.target.value;
+            if (deleteType === "all") {
+                conversationSelection.classList.add("d-none");
+                nextBtn.disabled = false;
+            } else {
+                conversationSelection.classList.remove("d-none");
+                updateNextButton();
+            }
+        });
+    });
+
+    // Next button handler
+    nextBtn.addEventListener("click", () => {
+        showStep(2);
+        updateSummary();
+    });
+
+    // Back button handler
+    backBtn.addEventListener("click", () => {
+        showStep(1);
+    });
+
+    // Form submission
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        
+        const pin = document.getElementById("emergency-delete-pin").value;
+        const chatIdsToDelete = deleteType === "all" ? [] : Array.from(selectedChatIds);
+        
+        setLoading(true);
+        errorDiv.classList.add("d-none");
+        
+        try {
+            const response = await fetch("/security/emergency-delete", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    pin: pin,
+                    delete_type: deleteType,
+                    chat_ids: chatIdsToDelete
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.success) {
+                resultDiv.textContent = data.message;
+                showStep(3);
+                
+                // Reload page after 2 seconds to refresh the chat list
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            } else {
+                errorDiv.textContent = data.message || "Deletion failed. Please try again.";
+                errorDiv.classList.remove("d-none");
+            }
+        } catch (error) {
+            console.error("Emergency deletion error:", error);
+            errorDiv.textContent = "An error occurred. Please try again.";
+            errorDiv.classList.remove("d-none");
+        } finally {
+            setLoading(false);
+        }
+    });
+
+    async function loadConversations() {
+        try {
+            const response = await fetch("/chat/all-conversations");
+            const data = await response.json();
+            conversations = data.conversations || [];
+            renderConversations();
+        } catch (error) {
+            console.error("Failed to load conversations:", error);
+            conversationList.innerHTML = '<p class="text-danger small">Failed to load conversations</p>';
+        }
+    }
+
+    function renderConversations() {
+        if (conversations.length === 0) {
+            conversationList.innerHTML = '<p class="text-muted small">No conversations found</p>';
+            return;
+        }
+
+        conversationList.innerHTML = conversations.map((conv) => {
+            const displayName = conv.type === "group" 
+                ? `${conv.name} (${conv.alias})` 
+                : conv.name;
+            const icon = conv.type === "group" ? "👥" : "💬";
+            const badge = conv.type === "group" ? "Group" : "Direct";
+            
+            return `
+                <div class="list-group-item list-group-item-action bg-dark border-secondary">
+                    <div class="form-check">
+                        <input class="form-check-input conversation-checkbox" type="checkbox" value="${conv.id}" id="conv-${conv.id}">
+                        <label class="form-check-label w-100" for="conv-${conv.id}">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <strong>${icon} ${displayName}</strong>
+                                    <span class="badge bg-secondary ms-2">${badge}</span>
+                                </div>
+                                <small class="text-muted">${conv.message_count} messages</small>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            `;
+        }).join("");
+
+        // Add event listeners to checkboxes
+        document.querySelectorAll(".conversation-checkbox").forEach((checkbox) => {
+            checkbox.addEventListener("change", (e) => {
+                if (e.target.checked) {
+                    selectedChatIds.add(e.target.value);
+                } else {
+                    selectedChatIds.delete(e.target.value);
+                }
+                updateNextButton();
+            });
+        });
+    }
+
+    function updateNextButton() {
+        nextBtn.disabled = selectedChatIds.size === 0;
+    }
+
+    function updateSummary() {
+        let summaryText = "";
+        if (deleteType === "all") {
+            const totalMessages = conversations.reduce((sum, conv) => sum + conv.message_count, 0);
+            summaryText = `You are about to delete ALL conversations (${conversations.length} conversations, ${totalMessages} total messages).`;
+        } else {
+            const selectedConvs = conversations.filter(c => selectedChatIds.has(c.id));
+            const totalMessages = selectedConvs.reduce((sum, conv) => sum + conv.message_count, 0);
+            summaryText = `You are about to delete ${selectedConvs.length} conversation(s) (${totalMessages} total messages).`;
+        }
+        summaryDiv.textContent = summaryText;
+    }
+
+    function showStep(stepNumber) {
+        step1.classList.add("d-none");
+        step2.classList.add("d-none");
+        step3.classList.add("d-none");
+        
+        if (stepNumber === 1) step1.classList.remove("d-none");
+        else if (stepNumber === 2) step2.classList.remove("d-none");
+        else if (stepNumber === 3) step3.classList.remove("d-none");
+    }
+
+    function resetModal() {
+        selectedChatIds.clear();
+        deleteType = "selected";
+        document.getElementById("delete-type-selected").checked = true;
+        conversationSelection.classList.remove("d-none");
+        nextBtn.disabled = true;
+        form.reset();
+        errorDiv.classList.add("d-none");
+        showStep(1);
+    }
+
+    function setLoading(loading) {
+        submitBtn.disabled = loading;
+        const spinner = submitBtn.querySelector(".spinner-border");
+        const text = submitBtn.querySelector(".emergency-delete-btn-text");
+        
+        if (loading) {
+            spinner.classList.remove("d-none");
+            text.textContent = "Deleting...";
+        } else {
+            spinner.classList.add("d-none");
+            text.textContent = "Delete Permanently";
+        }
+    }
+}
+
+// Initialize emergency deletion when DOM is ready
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initializeEmergencyDeletion);
+} else {
+    initializeEmergencyDeletion();
+}
