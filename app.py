@@ -919,7 +919,7 @@ def emergency_delete_chats():
             for chat_id in chat_ids:
                 # Parse chat_id format: "direct:{user_id}" or "group:{group_id}"
                 chat_parts = str(chat_id).split(":", 1)
-                if len(chat_parts) != 2:
+                if len(chat_parts) != 2 or not chat_parts[1]:
                     continue
                     
                 chat_type, target_id = chat_parts
